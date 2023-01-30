@@ -59,8 +59,10 @@ export const createImagesFromMap = async (ids) => {
                 ...addParam
             });
 
-            let url = process.env.NODE_ENV === "production" ? "https://www.zuugle.at/public/headless-leaflet/index.html?gpx=https://www.zuugle.at/public/gpx/" :
-                                                                "http://localhost:8080/public/headless-leaflet/index.html?gpx=http://localhost:8080/public/gpx/"
+            let url = process.env.NODE_ENV === "production" ? 
+            "https://www.zuugle.at/public/headless-leaflet/index.html?gpx=https://www.zuugle.at/public/gpx/" 
+            :
+            "http://localhost:8080/public/headless-leaflet/index.html?gpx=http://localhost:8080/public/gpx/"
 
 
             const chunkSize = 10;
@@ -81,7 +83,7 @@ export const createImagesFromMap = async (ids) => {
 
                     if (!!filePath && !!!fs.existsSync(filePath)) {
                         await createImageFromMap(browser, filePath, url + ch + ".gpx", 90);
-                        // console.log('Big generated successfully: ', filePath);
+                        console.log('Big generated successfully: ', filePath);
 
                         try {
                             await sharp(filePath).resize({
@@ -89,7 +91,7 @@ export const createImagesFromMap = async (ids) => {
                                 height: 400,
                                 fit: "inside"
                             }).jpeg({quality: 50}).toFile(filePathSmall);
-                            // console.log('Small generated successfully: ', filePathSmall);
+                            console.log('Small generated successfully: ', filePathSmall);
                         } catch(e){
                             console.error(e);
                         }
@@ -100,7 +102,7 @@ export const createImagesFromMap = async (ids) => {
                 })));
             }
         } catch (err) {
-            console.log(err.message);
+            console.log("Error Line 105 -->",err.message);
         } finally {
             if (browser) {
                 await browser.close();
@@ -115,22 +117,22 @@ export const createImagesFromMap = async (ids) => {
 export const createImageFromMap = async (browser, filePath,  url, picquality) => {
     try {
         if(!!filePath){
-            // console.log('createImageFromMap ', filePath, ' ', url, ' ', picquality);
+            console.log('createImageFromMap ', filePath, ' ', url, ' ', picquality);
             const page = await browser.newPage();
             await page.emulateMediaType('print');
             await page.setCacheEnabled(false);
             await page.goto(url, { timeout: 30000, waitUntil: 'networkidle0' });
             await page.waitForTimeout(10);
             await page.bringToFront();
-            // console.log('Screenshot start');
+            console.log('Screenshot start');
             await page.screenshot({path: filePath, type: "jpeg", quality: picquality});
-            // console.log('Screenshot done: ', filePath);
+            console.log('Screenshot done: ', filePath);
             await page.close();
-            // console.log('page close done');
+            console.log('page close done');
         }
     } catch (err) {
-        console.log('createImageFromMap error: ', err);
-        console.log(err.message);
+        console.log('createImageFromMap error: ', err.message);
+        // console.log(err.message);
     }
 }
 
