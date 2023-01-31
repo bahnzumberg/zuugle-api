@@ -553,3 +553,4 @@ so must check createImageFromMap , it shows up in 2 files , gpxUtils.js, and tou
 going down that RH => 
  
 
+TEST FOR GITHUB 
