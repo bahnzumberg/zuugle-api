@@ -117,7 +117,7 @@ export const createImagesFromMap = async (ids) => {
 export const createImageFromMap = async (browser, filePath,  url, picquality) => {
     try {
         if(!!filePath){
-            console.log('createImageFromMap ', filePath, ' ', url, ' ', picquality);
+            console.log('createImageFromMap , L120 gpxUtils, filePath :', filePath, ' URL : ', url, ' picquality :', picquality);
             const page = await browser.newPage();
             await page.emulateMediaType('print');
             await page.setCacheEnabled(false);
@@ -184,7 +184,8 @@ export const createSingleImageFromMap = async (providerhashedUrl, fromTourTrackK
             const page = await browser.newPage();
             await page.emulateMediaType('print');
             await page.setCacheEnabled(false);
-            await page.goto(url, { timeout: 45000, waitUntil: 'networkidle0' });
+            await page.goto(url, { timeout: 1000000, waitUntil: 'networkidle0' });
+            // await page.goto(url, { timeout: 45000, waitUntil: 'networkidle0' });
             await page.waitForTimeout(20);
             await page.bringToFront();
             await page.screenshot({path: filePath, type: "jpeg", quality: 90});
@@ -252,3 +253,9 @@ const getSequenceFromFile = async (file) => {
     }
     return null;
 }
+
+// description:
+// This script exports a single function called createImagesFromMap, which creates and saves images of GPX files. It does so by using the puppeteer library to launch a headless instance of the Google Chrome browser, load a webpage that displays GPX files on a map, and then take screenshots of the resulting maps.
+// The function accepts an array of GPX file IDs, and for each ID, it generates a large and small image of the corresponding GPX file on a map. The images are stored in the public/gpx-image/ directory, with filenames based on the GPX file IDs.
+// Before creating the images, the function first checks if the images already exist in the public/gpx-image/ directory. If they do, it skips generating them and moves on to the next GPX file ID.
+// The script also contains some configuration options for running the script in different environments (development or production). It sets the path to the Chrome executable, sets the browser launch options, and sets the base URL for loading the GPX files in the browser.
