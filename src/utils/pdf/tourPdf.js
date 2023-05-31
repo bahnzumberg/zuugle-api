@@ -6,9 +6,9 @@ import {convertNumToTime} from "../helper";
 import {createSingleImageFromMap} from "../gpx/gpxUtils";
 import { convertDifficulty, titleCase } from "../dataConversion";
 
-export const tourPdf = async ({tour, connection, connectionReturn, connectionReturns, datum, referral = "https://www.zuugle.at"}) => {
-    // console.log("L 10 , tourPdf.js / tourPdf, value of tour arg. : ",tour)
-    const TEMPLATE = "tour-details";
+export const tourPdf = async ({language, tour, connection, connectionReturn, connectionReturns, datum, referral = "https://www.zuugle.at"}) => {
+    // depending on the language select the name of the TEMPLATE , e.g. "tour-details-en"
+    const TEMPLATE = !!language ? `tour-details-${language}` : "tour-details";
 
     tour.difficulty = convertDifficulty(tour.difficulty); //switch from integer values (1,2,3) to text (Leicht, Mittel, Schwer)
     tour.difficulty_orig = titleCase(tour.difficulty_orig)

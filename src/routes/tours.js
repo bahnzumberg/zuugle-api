@@ -980,6 +980,12 @@ const parseTrueFalseQueryParam = (param) => {
 }
 
 const tourPdfWrapper = async (req, res) => {
+    //***************** */
+    // extract the language from the query string and pass it to tourPdf below
+    //***************** */
+    const currLanguage = req.query.currLanguage; // Extracting the value of currLanguage from the query string
+    console.log("currLanguage in tourPdfWrapper :" + currLanguage);
+    //req.params: tours.js L987 {"id":"61483"}
     const id = req.params.id;
     const city = req.query.city;
     const datum = !!req.query.datum ? req.query.datum : moment().format();
@@ -1015,8 +1021,8 @@ const tourPdfWrapper = async (req, res) => {
         connectionReturn.return_duration_minutes = minutesFromMoment(moment(connectionReturn.return_duration, 'HH:mm:ss'));
     }
 
-    if(!!tour){
-        const pdf = await tourPdf({tour, connection: mapConnectionToFrontend(connection, datum), connectionReturn: mapConnectionReturnToFrontend(connectionReturn, datum), datum, connectionReturns});
+    if(!!tour){     //TODO: check where should language belong to
+        const pdf = await tourPdf({language: currLanguage,tour, connection: mapConnectionToFrontend(connection, datum), connectionReturn: mapConnectionReturnToFrontend(connectionReturn, datum), datum, connectionReturns});
         // console.log("L1019 tours /tourPdfWrapper / pdf value :", !!pdf); // value : true
         if(!!pdf){
             // console.log("L1022 tours.js : fileName passed to tourPdfWrapper : ", "Zuugle_" + tour.title.replace(/ /g, '') + ".pdf")
