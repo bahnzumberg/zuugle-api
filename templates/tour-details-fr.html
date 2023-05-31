@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html>
-<head>
+<html lang="fr">
     <head>
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0"/>
@@ -154,7 +153,7 @@
 
 {{#if image}}
 <div class="image">
-    <h3>Überblick der beschriebenen Tour /FR</h3>
+    <h3>Aperçu de la visite sélectionnée</h3>
     <img src={{image}} width="100%" height="auto"/>
 </div>
 {{/if}}
@@ -163,13 +162,13 @@
 <div class="image-connection">
     {{#if imageConnection}}
         <div style="margin-right: 5px;">
-            <h3>Fußweg von der Haltestelle zum Tourstart</h3>
+            <h3>Marche à pied de l'arrêt de bus/la gare jusqu'au départ du tour</h3>
             <img src={{imageConnection}} width="100%" height="auto"/>
         </div>
     {{/if}}
     {{#if imageReturn}}
         <div style="margin-left: 5px;">
-            <h3>Fußweg vom Tourende zur Haltestelle</h3>
+            <h3>Marche à pied de la fin de la visite à l'arrêt de bus/la gare ferroviaire</h3>
             <img src={{imageReturn}} width="100%" height="auto" />
         </div>
     {{/if}}
@@ -185,9 +184,9 @@
 </div>
 
 <div style="margin-top: 20px">
-    <div><h2>Anreise</h2></div>
+    <div><h2>Comment s'y rendre</h2></div>
     <div style="border-radius: 16px; background-color: #F7F7F7; padding-top: 10px; padding-bottom: 10px; margin-top: 20px">
-        <div style="font-size: 16px; padding: 20px">Anreise {{departureText}} - Umstiege: {{connection_no_of_transfers}}</div>
+        <div style="font-size: 16px; padding: 20px">Arrivée {{departureText}} - Correspondances: {{connection_no_of_transfers}}</div>
         <ul>
             {{#each connectionEntries}}
             <li class="timeline-li">
@@ -259,18 +258,18 @@
 </div>
 
 <div><p></p></div>
-<div><h2>Tour</h2></div>
+<div><h2>Randonnée pédestre</h2></div>
 <div style="font-size: 16px; color: #000000; margin-bottom: 40px">
-    Die gesamte Beschreibung und die Fotos zu der Tour findest du auf: <a href="{{url}}" target="_new">{{url}}</a>.
+    Tu trouveras la description complète et les photos de l'excursion sur: <a href="{{url}}" target="_new">{{url}}</a>.
 </div>
 <div><p></p></div>
 
 {{#if connectionAllReturns}}
     <div style="margin-top: 20px">
-        <div><h2>Heimreise</h2></div>
+        <div><h2>Comment rentrer chez soi</h2></div>
         {{#each connectionAllReturns}}
         <div style="border-radius: 16px; background-color: #F7F7F7; padding-top: 10px; padding-bottom: 10px; margin-top: 20px">
-            <div style="font-size: 16px; padding: 20px">{{index}}. Rückreise {{returnText}} - Umstiege: {{return_no_of_transfers}}</div>
+            <div style="font-size: 16px; padding: 20px">{{index}}. Voyage de retour {{returnText}} - Correspondances: {{return_no_of_transfers}}</div>
             <ul>
                 {{#each connectionReturnEntries}}
                 <li class="timeline-li">
