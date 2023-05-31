@@ -10,8 +10,6 @@ import authenticate from "./middlewares/authenticate";
 import {BrowserService} from "./utils/pdf/BrowserService";
 // import {syncDataApplicationSide} from "./jobs/syncDataApplicationSide";
 // import {syncFilesApplicationSide} from "./jobs/syncFilesApplicationSide";
-import moment from "moment";
-const schedule = require('node-schedule');
 import {getZuugleCors, hostMiddleware} from "./utils/zuugleCors";
 
 process.env.TZ = 'Europe/Berlin';
