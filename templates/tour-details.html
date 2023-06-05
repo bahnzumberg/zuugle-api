@@ -148,13 +148,18 @@
 
 <div>
     <h1>{{title}}</h1>
+    <!-- <h1>{{t "title"}}</h1> -->
     <a href="{{url}}" target="_new">{{url}}</a>
     <br><br>
 </div>
 
 {{#if image}}
 <div class="image">
-    <h3>Überblick der beschriebenen Tour</h3>
+    <!-- <h3>Überblick der beschriebenen Tour</h3> -->
+    <!-- <h3>{{description}}</h3> -->
+    <h3>{{t 'description'}}</h3>
+    <!-- index.html -->
+
     <img src={{image}} width="100%" height="auto"/>
 </div>
 {{/if}}
@@ -163,13 +168,15 @@
 <div class="image-connection">
     {{#if imageConnection}}
         <div style="margin-right: 5px;">
-            <h3>Fußweg von der Haltestelle zum Tourstart</h3>
+            <!-- <h3>Fußweg von der Haltestelle zum Tourstart</h3> -->
+            <h3>{{t 'fussweg_tourstart'}}</h3>
             <img src={{imageConnection}} width="100%" height="auto"/>
         </div>
-    {{/if}}
-    {{#if imageReturn}}
+        {{/if}}
+        {{#if imageReturn}}
         <div style="margin-left: 5px;">
-            <h3>Fußweg vom Tourende zur Haltestelle</h3>
+            <h3>{{t 'fussweg_tourende'}}</h3>
+            <!-- <h3>Fußweg vom Tourende zur Haltestelle</h3> -->
             <img src={{imageReturn}} width="100%" height="auto" />
         </div>
     {{/if}}
@@ -187,7 +194,9 @@
 <div style="margin-top: 20px">
     <div><h2>Anreise</h2></div>
     <div style="border-radius: 16px; background-color: #F7F7F7; padding-top: 10px; padding-bottom: 10px; margin-top: 20px">
-        <div style="font-size: 16px; padding: 20px">Anreise {{departureText}} - Umstiege: {{connection_no_of_transfers}}</div>
+        <div style="font-size: 16px; padding: 20px">  {{t 'journeyText'}} {{departureText}} - {{t 'transfersText'}}: {{connection_no_of_transfers}}
+        </div>
+        <!-- <div style="font-size: 16px; padding: 20px">Anreise {{departureText}} - Umstiege: {{connection_no_of_transfers}}</div> -->
         <ul>
             {{#each connectionEntries}}
             <li class="timeline-li">
