@@ -12,6 +12,8 @@ import {BrowserService} from "./utils/pdf/BrowserService";
 // import {syncFilesApplicationSide} from "./jobs/syncFilesApplicationSide";
 import {getZuugleCors, hostMiddleware} from "./utils/zuugleCors";
 
+let app = express();
+  
 process.env.TZ = 'Europe/Berlin';
 
 /* start api */
@@ -22,7 +24,9 @@ if(process.env.NODE_ENV === "production"){
 
 let corsOptions = getZuugleCors();
 
-let app = express();
+
+//i18n 
+app.use('/locales', express.static('locales')); // Serve language resources
 
 process.setMaxListeners(0);
 app.use(bodyParser.json({limit: '1024mb'}));
