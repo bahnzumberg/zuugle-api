@@ -1,11 +1,55 @@
 import {BrowserService} from "./BrowserService";
+// i18n
+import i18next from 'i18next';
+import Backend from 'i18next-fs-backend';
+import i18nextMiddleware from 'i18next-http-middleware';
+
 
 const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
 
-export const writePdf = async (data, TEMPLATE, saveToDisk, fileName, landscape = false, toSaveFolder = null) => {
+//========== i18next =============
+//================================
+//creating path generator for resources in i18next
+const resolveLoadPath = (lng) => {
+    const baseDirectory = path.dirname(require.main.filename);
+    const loadPath = path.resolve(baseDirectory, 'locales', lng, 'index.json');
+    return loadPath;
+  };
+  //starting with only 2 languages for the test run
+  const languageList = ['en', 'fr'];
+  // create resources for use in i18next initialization
+  const resources = languageList.reduce((acc, lng) => {
+    const loadPath = resolveLoadPath(lng);
+    const resource = require(loadPath);
+    acc[lng] = resource;
+    return acc;
+  }, {});
+  
+//   console.log(resources);
+// Setting up i18next with configuration
+i18next
+    .use(Backend)
+    .use(i18nextMiddleware.LanguageDetector)
+    .init({
+        lng: 'en', // default language
+        resources: resources
+    });
+
+// make sure language is one of the available languages 
+const checkLanguage = (lng) => {
+    return languageList.includes(lng);
+};
+//clgs
+// console.log("testing language checker for 'fr'/true? :", checkLanguage('fr'));
+// console.log("testing language checker for 'es' /false ? :", checkLanguage('es'));
+
+export const writePdf = async (language, data, TEMPLATE, saveToDisk, fileName, landscape = false, toSaveFolder = null) => {
+   
+    language && checkLanguage(language) && console.log("language coming from tourPdf: " + language)
     //clg :
+    //console.log("L 8 utils.js/ writePdf, data :", data);
     // console.log("L 8 utils.js/ writePdf, param/TEMPLATE :", TEMPLATE);
     // console.log("L 8 utils.js/ writePdf, param/saveToDisk :", saveToDisk);
     // console.log("L 8 utils.js/ writePdf, param/fileName :", fileName);
@@ -19,8 +63,21 @@ export const writePdf = async (data, TEMPLATE, saveToDisk, fileName, landscape =
             return new handlebars.SafeString(text);
         });
 
+        //=========i18next==================================
+        // Set the language for i18next  
+        i18next.changeLanguage(language); 
+        // Register the i18n function as a helper
+        handlebars.registerHelper('t', function(i18n_key) {
+            var result = i18next.t(i18n_key);
+            return new handlebars.SafeString(result);
+        });
+        // Get the i18n function bound to the current language
+        const t = i18next.getFixedT( language || 'en');
+        //===================================================
+
         let template = handlebars.compile(templateHtml);
-        let html = template(data);
+
+        let html = template({ ...data, t }); // Pass `t` function as a property to the template
         //clg
         //console.log("L 24 : html is :", html) // true 
         if(html){
@@ -61,8 +118,8 @@ const htmlToPdf = async (html, saveToDisk = false, fileName = null, landscape = 
         printBackground: true,
         landscape: landscape,
     };
-
-    const instance = await BrowserService.getInstance(); // puppeteer instance
+    // puppeteer instance created
+    const instance = await BrowserService.getInstance();
     if(!!instance) {
         const page = await instance.createNewPage();
         if (!!page) {
@@ -85,6 +142,7 @@ const htmlToPdf = async (html, saveToDisk = false, fileName = null, landscape = 
 };
 
 const readTemplate = (name = 'standard') => {
+    // console.log("L164 name : ", name);
     let filePath = path.join(__dirname, "../../templates", name + '.html');
     if(process.env.NODE_ENV !== "production"){
         filePath = path.join(__dirname, "../../../templates", name + '.html');
@@ -94,7 +152,7 @@ const readTemplate = (name = 'standard') => {
 
 const readFile = (name, contentType = null) => {
     //clg
-    // console.log("L81, utils.js /readFile /filePath", name)// this is correct:/Users/falsalih/Documents/ACTIVEFILE/Zuugle-current/zuugle-api-update-versions/templates/tour-details.html
+    //console.log("L81, utils.js /readFile /filePath", name)// this is correct:/Users/falsalih/Documents/ACTIVEFILE/Zuugle-current/zuugle-api-update-versions/templates/tour-details.html
     try {
         return fs.readFileSync(name, contentType);
     } catch(e){
@@ -103,6 +161,7 @@ const readFile = (name, contentType = null) => {
         return null;
     }
 };
+
 
 export const getLogoBase64 = () => {
     return "data:image/png;base64,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";
@@ -129,7 +188,6 @@ export const getLogoBase64 = () => {
 
 // The code also includes helper functions like `readTemplate`, `readFile`, and `getLogoBase64`, which are used to read template files, read regular files, and get the base64 representation of a logo image, respectively.
 
-// Please note that without the context of the imported modules and their implementations, it's difficult to provide a complete understanding of the code's functionality.
 
 // **************
 // description 2:
