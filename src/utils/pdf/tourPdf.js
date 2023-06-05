@@ -7,8 +7,12 @@ import {createSingleImageFromMap} from "../gpx/gpxUtils";
 import { convertDifficulty, titleCase } from "../dataConversion";
 
 export const tourPdf = async ({language, tour, connection, connectionReturn, connectionReturns, datum, referral = "https://www.zuugle.at"}) => {
+    console.log("tourPdf L10: ", language);
+
+    const TEMPLATE = "tour-details"; // this is the unified template which is the original one, makes use of i18next in utils.js and src/locales folder for language files, for thsi option translation files are not ready, otherwise see samples used inside the locale lang files.
+
     // depending on the language select the name of the TEMPLATE , e.g. "tour-details-en"
-    const TEMPLATE = !!language ? `tour-details-${language}` : "tour-details";
+    // const TEMPLATE = !!language ? `tour-details-${language}` : "tour-details"; // this option uses pre-made templates in src/templates folder
 
     tour.difficulty = convertDifficulty(tour.difficulty); //switch from integer values (1,2,3) to text (Leicht, Mittel, Schwer)
     tour.difficulty_orig = titleCase(tour.difficulty_orig)
@@ -102,10 +106,18 @@ export const tourPdf = async ({language, tour, connection, connectionReturn, con
         logo: getLogoBase64(),
         url: tour.url
     };
+    // console.log("data.refferal :", data.referral);
+    // console.log("data.title :", data.title);
+    // console.log("data.description :", data.description);
+    // console.log("data.datum :", data.datum);
+    // console.log("data.departureText :", data.departureText);
+    // console.log("data.connectionEntries :", data.connectionEntries);
+    // console.log("data.connectionAllReturns :", data.connectionAllReturns);
+    // console.log("data.connection_no_of_transfers :", data.connection_no_of_transfers);
 
     // console.log("L105 tourPdf data is :", typeof(data) ); // L105 tourPdf data is : object , this works
     // console.log("L106 tourPdf tour.name is :", tour.name); // this is undefined
-    return await writePdf(data, TEMPLATE, false, tour.name + ".pdf", false,  null); // this call works; see the test inside utils.js/writePdf
+    return await writePdf(language, data, TEMPLATE, false, tour.name + ".pdf", false,  null); // this call works; see the test inside utils.js/writePdf
 };
 
 const parseImageToValidBase64 = async (file, contentType = "image/jpeg", resizeWidth = undefined) => {
