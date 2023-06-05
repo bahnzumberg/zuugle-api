@@ -1,0 +1,10 @@
+{
+  "translation": {
+    "title": "Bienvenue dans la visite",
+    "description": "Découvrez la beauté de notre visite !",
+    "fussweg_tourstart": "Marchez de l'arrêt de bus jusqu'au début de la visite",
+    "fussweg_tourende": "Distance à pied depuis la fin jusqu'à l'arrêt",
+    "journeyText": "Voyage",
+    "transfersText": "Transferts"
+  }
+}

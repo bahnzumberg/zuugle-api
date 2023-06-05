@@ -1,0 +1,10 @@
+{
+    "translation": {
+        "title": "Welcome to the Tour",
+        "description": "Experience the beauty of our tour!",
+        "fussweg_tourstart": "Distance from the bus stop to the start of the tour",
+        "fussweg_tourende": "Distance from the end to the bus stop",
+        "journeyText": "Journey",
+        "transfersText": "Transfers"
+    }
+}
