@@ -7,8 +7,8 @@ import {hashString, minutesFromMoment} from "../utils/helper";
 const { create, builder } = require('xmlbuilder2');
 const fs = require('fs-extra');
 const path = require('path');
-import pLimit from 'p-limit';
-// const { default: pLimit } = await import('p-limit');
+// import pLimit from 'p-limit';
+// const pLimit = await import('p-limit');
 
 // import { isArrayLike } from "lodash";
 
@@ -225,6 +225,10 @@ async function _syncConnectionGPX(key, fileName, title){
 }
 
 export async function syncConnectionGPX(){
+
+    // const pLimit = await import('p-limit');
+    const { default: pLimit } = await import('p-limit');
+
     const _limit = pLimit(20);
 
     const toTourFahrplan = await knex('fahrplan').select(['totour_track_key']).whereNotNull('totour_track_key').groupBy('totour_track_key');
@@ -247,6 +251,10 @@ export async function syncConnectionGPX(){
 }
 
 export async function syncGPX(){
+    // const pLimit = await import('p-limit');
+    const { default: pLimit } = await import('p-limit');
+
+
     const allTours = await knex('tour').select(["title", "hashed_url", "provider"]).distinct();
     if(!!allTours && allTours.length > 0){
         const _limit = pLimit(20);
@@ -370,6 +378,10 @@ export async function syncGPXdata(mode='dev'){
 
 
 export async function syncFahrplan(mode='dev'){
+
+    const { default: pLimit } = await import('p-limit');
+    // const pLimit = await import('p-limit');
+
     if(mode=='prod'){
         // On production the table fahrplan has been already loaded 
         console.log('Skipping this step, as we are on production.');
