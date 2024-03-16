@@ -1,5 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import path  from 'node:path';
 import cors from 'cors';
 import tours from './routes/tours';
 import cities from './routes/cities';
@@ -11,6 +12,85 @@ import share from "./routes/share";
 import {BrowserService} from "./utils/pdf/BrowserService";
 import {getZuugleCors, hostMiddleware} from "./utils/zuugleCors";
 import searchPhrases from "./routes/searchPhrases";
+import i18next from 'i18next';
+import Backend from 'i18next-fs-backend';
+import middleware from 'i18next-http-middleware';
+import 'dotenv/config' ;
+// import fs from 'node:fs';
+// import trans from '../locales/de/translation.json'
+
+// console.log("dirname : ", __dirname)
+// console.log("process.cwd()   :",process.cwd())
+// const root = process.cwd();
+// const enTransfile = fs.readFileSync(path.join(process.cwd(), '/locales/de/translation.json')); //
+// const enTransfile = fs.readFileSync(path.resolve('/Users/falsalih/Documents/ACTIVEFILE/Zuugle-new-version-detail/zuugle-api/locales/de/translation.json')); //works
+//const enTransfile = fs.readFileSync(path.join(__dirname, '/locales/en/translation.json')); // not work..../zuugle-api/src/locales/en/translation.json'
+
+// const parsedTransFile = JSON.parse(enTransfile);
+// console.log("parsedTransFile :", parsedTransFile);
+
+// console.log('L22 Resolved loadpath:', path.resolve('/Users/falsalih/Documents/ACTIVEFILE/Zuugle-new-version-detail/zuugle-api/locales/{{lng}}/translation.json'));
+
+
+i18next.use(Backend).use(middleware.LanguageDetector).init({
+    initImmediate: true ,
+    lng: 'en',
+    // load: 'languageOnly',
+    debug : false,
+    preload: ['en', 'fr', 'de', 'en-GB'],
+    load: 'all',
+    supportedLngs: ['en', 'en-GB', 'en-US', 'fr', 'de'],
+    // ns: ['translation'],
+    // defaultNS: 'translation',
+    fallbacklng: false,
+    resources:{
+        "de": {
+            "translation": {
+                "bahnhof": "Bahnhof",
+                "std_mit_nach":"{{CD}} Std mit {{connectionType}} {{CN}} nach",
+            }
+        },
+        "en-GB":{
+            "translation": {
+                "bahnhof": "Railway station",
+                "std_mit_nach":"{{CD}} h with {{connectionType}} {{CN}} to"
+            }
+        },
+        "en":{
+            "translation": {
+                "bahnhof": "Railway station",
+                "std_mit_nach":"{{CD}} h with {{connectionType}} {{CN}} to"
+            }
+        },
+        "fr": {
+            "translation": {
+            "bahnhof": "Gare ferroviaire",
+            "std_mit_nach": "{{CD}} h avec {{connectionType}} {{CN}} à"
+            }
+        }
+    },
+
+
+    // backend:{    // *********  REMOVE AND INSERT THE TABLE ENTRIES UNDER "resources" ***********
+
+    //     // loadpath: './locales/{{lng}}/translation.json'
+    //     // loadpath: 'locales/{{lng}}/translation.json'
+    //     // loadpath: '../locales/{{lng}}/{{ns}}/translation.json'
+    //     // loadpath: `http://localhost:8080/api/locales/{{lng}}/{{ns}}/translation.json`
+    //     // loadpath: path.resolve(__dirname, '/locales/{{lng}}/translation.json')
+    //     loadpath: path.resolve(process.cwd(), '/locales/{{lng}}/translation.json')
+    // }
+
+}, (err, t) => {
+    // if(err){throw new Error(err);}
+    if(err) {
+        console.log("Error log starts here :");
+        // console.log(err);
+    }
+    // console.log("bahnhof is : ",t('bahnhof'));
+    console.log("bahnhof is : ",t('bahnhof',{lng: 'fr'}));
+    }
+)
 
 process.env.TZ = 'Europe/Berlin';
 
@@ -25,9 +105,13 @@ if(process.env.NODE_ENV === "production"){
     }
 }
 
+console.log("port :", port)
+
 let corsOptions = getZuugleCors();
 
 let app = express();
+
+app.use(middleware.handle(i18next));
 
 process.setMaxListeners(0);
 app.use(bodyParser.json({limit: '1024mb'}));

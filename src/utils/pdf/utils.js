@@ -204,13 +204,9 @@ export function formatToHHMM(durationString) {
 }
 
 export function jsonToStringArray(connection, toFrom = "to"){
-    // consoleLog("L1 : connection : ",connection), get connection as an object
     // toFrom is "to" or "from" , to use the right text in end or begining of array
     // this is done by using either "totour_track_duration" or "fromtour_track_duration"
-    // if(!!connection && !!connection.connection_description_json && !!connection.return_description_json ){
-    //  logger("L199 utils/jsonToStringArray connection");
-    //  logger(JSON.stringify(connection.return_description_json));
-    // }
+   
     let stringArray = [];
     if(!!connection && !!connection.connection_description_json && !!connection.return_description_json ){
         let descriptionJSON = toFrom === "to" ? 
@@ -241,8 +237,8 @@ export function jsonToStringArray(connection, toFrom = "to"){
             stringArray.push(`  >  ${formatToHHMM(connection.fromtour_track_duration)} Std Zustiegsdauer zum Touren-Ausgangspunkt`)
         }
     }
-    // logger("L237 utils/stringArray");
-//     logger(JSON.stringify(stringArray));
+    logger("L237 utils/stringArray");
+    logger(JSON.stringify(stringArray));
     return stringArray;   
 }
 // **************
