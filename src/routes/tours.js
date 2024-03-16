@@ -8,7 +8,6 @@ import {tourPdf} from "../utils/pdf/tourPdf";
 import {getHost, replaceFilePath, round, get_domain_country, get_country_lanuage_from_domain, getAllLanguages } from "../utils/utils";
 import { convertDifficulty } from '../utils/dataConversion';
 import logger from '../utils/logger';
-// import {jsonToText, jsonToStringArray} from '../utils/utils';
 import { jsonToStringArray } from '../utils/pdf/utils';
 import { isArray } from 'lodash';
 
@@ -100,6 +99,13 @@ const getWrapper = async (req, res) => {
 const listWrapper = async (req, res) => {
 
     const currLanguage = req.query.currLanguage ? req.query.currLanguage : 'en'; 
+
+    // Access translation function via req.t
+    // const translate = req.t;
+    // Log the translation of 'bahnhof'
+    // console.log("currLanguage:", currLanguage);
+    // console.log("Translation of 'bahnhof':", await translate('bahnhof',{lng: 'en'}));
+
 
     const search = req.query.search; 
     const showRanges = !!req.query.ranges;
@@ -785,7 +791,7 @@ const getReturnConnectionsByConnection = (tour, connections, domain, today) => {
         e.return_duration_minutes = minutesFromMoment(moment(e.return_duration, 'HH:mm:ss'));
 
         if(!!!_duplicatesRemoved.find(tt => compareConnectionReturns(e, tt)) && moment(e.valid_thru).isSameOrAfter(today)){
-            e = mapConnectionToFrontend(e, today.format())
+            e = mapConnectionToFrontend(e, today.format())//func. definition does not receive 2nd argument "date" 
             e.gpx_file = `${getHost(domain)}/public/gpx-track/fromtour_track_${e.fromtour_track_key}.gpx`;
             _duplicatesRemoved.push(e);
         }
@@ -877,7 +883,11 @@ const getWeekday = (date) => {
 
 const parseConnectionDescription = (connection) => {
     if(!!connection && !!connection.connection_description_json){
-        let splitted = jsonToStringArray(connection, 'to');  
+        let splitted = jsonToStringArray(connection, 'to');
+        // console.log("L887 splitted :")  
+        // console.log(splitted)  // array of strings [
+                                                    // '08:07 Amstetten Bahnhof',
+                                                    // '  |  00:51 Std mit Zug RJ 543 nach',
         splitted = splitted.map(item => item.replace(/\s*\|\s*/, '').replace(/,/g, ', ') + '\n');
 
         return splitted;
@@ -1036,8 +1046,8 @@ const buildWhereFromFilter = (params, query, print = false) => {
   try {
 
     //clg: query
-    logger("L1137 query at entry to buildWhereFromFilter :");
-    logger(query.toSQL().sql) 
+    // logger("L1137 query at entry to buildWhereFromFilter :");
+    // logger(query.toSQL().sql) 
     
    
     // Description:
@@ -1281,13 +1291,21 @@ const buildWhereFromFilter = (params, query, print = false) => {
   return query;
 };
 
-const parseTrueFalseQueryParam = (param) => {
-    return !!param;
-}
 
 const tourPdfWrapper = async (req, res) => {
+    const currLanguage = req.query.currLanguage ? req.query.currLanguage : 'en'; 
+
+    // Access translation function via req.t
+    const translate = req.t;
+    // Log the translation of 'bahnhof'
+    console.log("L1297 currLanguage:", currLanguage);
+    console.log("L1298 Translation of 'bahnhof':", await translate('bahnhof',{lng: 'en'}));
     const id = req.params.id;
-    logger(`L1310 : tourPdfWrapper / id value : ${id}`); 
+    logger(`L1294 : tourPdfWrapper / id value : ${id}`); 
+    console.log(`L1296 : tourPdfWrapper : params `, (req.params))
+    //********************************************************** */
+    //********************************************************** */
+    //********************************************************** */
    
     const datum = !!req.query.datum ? req.query.datum : moment().format();
     const connectionId = req.query.connection_id;
@@ -1305,13 +1323,6 @@ const tourPdfWrapper = async (req, res) => {
         return;
     }else{
         logger(`L1324 : tour with id ${id} found`)
-        // if(process.env.NODE_ENV != "production"){
-        //     logger("-----------------------------------------------")
-        //     logger("-----------------------------------------------")
-        //     console.log("-----------------------------------------------")
-        //     console.log(`L1324 : tour with id ${id} found`)
-        //     console.log("-----------------------------------------------")
-        // }
     }
     if(!!connectionId){
         connection = await knex('fahrplan').select().where({id: connectionId}).first();
@@ -1339,12 +1350,12 @@ const tourPdfWrapper = async (req, res) => {
     }
 
     if(!!tour){
-        logger('L1363 tours.js/ mapConnectionToFrontend(connection, datum) :')
-        logger(mapConnectionToFrontend(connection, datum))
+        // logger('L1363 tours.js/ mapConnectionToFrontend(connection, datum) :')
+        // logger(mapConnectionToFrontend(connection, datum))
         const pdf = await tourPdf({tour, connection: mapConnectionToFrontend(connection, datum), connectionReturn: mapConnectionReturnToFrontend(connectionReturn, datum), datum, connectionReturns});
         //logger(`L1019 tours /tourPdfWrapper / pdf value : ${!!pdf}`); // value : true
         if(!!pdf){
-            console.log("L1022 tours.js : fileName passed to tourPdfWrapper : ", "Zuugle_" + tour.title.replace(/ /g, '') + ".pdf")
+            // console.log("L1022 tours.js : fileName passed to tourPdfWrapper : ", "Zuugle_" + tour.title.replace(/ /g, '') + ".pdf")
             res.status(200).json({ success: true, pdf: pdf, fileName: "Zuugle_" + tour.title.replace(/ /g, '') + ".pdf" });
             return;
         }
