@@ -10,6 +10,8 @@ import { convertDifficulty } from '../utils/dataConversion';
 import logger from '../utils/logger';
 import { jsonToStringArray } from '../utils/pdf/utils';
 import { isArray } from 'lodash';
+import i18n from '../utils/i18n'
+import {changeLanguageHandler} from '../utils/pdf/utils.js'
 
 const fs = require('fs');
 const path = require('path');
@@ -1293,16 +1295,33 @@ const buildWhereFromFilter = (params, query, print = false) => {
 
 
 const tourPdfWrapper = async (req, res) => {
-    const currLanguage = req.query.currLanguage ? req.query.currLanguage : 'en'; 
+    // const currLanguage = req.query.currLanguage ? req.query.currLanguage : 'en';
+    // const language = await req.params.currLanguage; 
+    // const language = req.query.langauge; 
+    // const getLanguage = await function()  {logger("L1296 tourPdfWrapper / language:",language);}
 
-    // Access translation function via req.t
-    const translate = req.t;
+    // const newLang = req.i18n.language;
+    // const newLang = await req.i18n.changeLanguage('fr');
+    try {
+        const newLangPromise = changeLanguageHandler('fr'); // No need for await here
+        // Wait for the Promise to resolve
+        // Now log the resolved value
+        await newLangPromise.then(newLang => {
+            !!newLang && console.log(`L1293 : tourPdfWrapper / newLang value : ${newLang}`);
+        }).catch(error => {
+            console.error("Error occurred while changing language:", error);
+        });
+    } catch (error) {
+        console.error("Error occurred while obtaining language promise:", error);
+    }
+    
     // Log the translation of 'bahnhof'
-    console.log("L1297 currLanguage:", currLanguage);
-    console.log("L1298 Translation of 'bahnhof':", await translate('bahnhof',{lng: 'en'}));
+    // console.log("L1297 tourPdfWrapper / getLanguage:", getLanguage());
+    console.log("L1298 tourPdfWrapper /Translation of 'bahnhof':", await req.t('bahnhof',{lng: 'en'}));
     const id = req.params.id;
-    logger(`L1294 : tourPdfWrapper / id value : ${id}`); 
-    console.log(`L1296 : tourPdfWrapper : params `, (req.params))
+    console.log(`L1294 : tourPdfWrapper / id value : ${id}`); 
+    console.log(`L1305 : tourPdfWrapper : params `, req.params)
+    req.query ? console.log(`L1306 : tourPdfWrapper : query `, (req.query)) : console.log(`L1306 : tourPdfWrapper : query is not truthy `)
     //********************************************************** */
     //********************************************************** */
     //********************************************************** */

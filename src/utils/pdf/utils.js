@@ -1,6 +1,7 @@
 import {BrowserService} from "./BrowserService";
 import logger from "../logger";
 import moment from "moment";
+import i18n from '../i18n';
 
 
 const fs = require("fs");
@@ -114,7 +115,12 @@ export const getLogoBase64 = () =>
 
 
 
-function getConnectionTypeString(CT) {
+async function getConnectionTypeString(CT) {
+    // const lang = i18n.language;
+    // logger("L120 getConnectionTypeString  / lang = i18n.language ", lang)
+    // logger("L121 getConnectionTypeString /Translation of 'bahnhof':", await i18n.t('bahnhof'));
+
+ 
     const connectionTypes = {
         1: "Zug",
         2: "Bus",
@@ -131,57 +137,6 @@ function getConnectionTypeString(CT) {
     return connectionTypes[CT];
 }
 
-// export default function transformToDescriptionDetail(descriptionJSON, toFrom = "to") {
-//     let descriptionDetail = "";
-
-//     let totalTransferTime = 0;
-//     let isReturn = false;
-
-//     if(Array.isArray(descriptionJSON) && descriptionJSON.length > 0){
-//         for (let i = 0; i < descriptionJSON.length; i++) {
-//             const connection = descriptionJSON[i];
-//             const connectionType = getConnectionTypeString(connection.CT);
-//             const connectionName = connection.CN;
-//             const duration = !!connection.CD ? connection.CD : "N/A"; // CD = Connection Duration
-    
-//             if (i === 0) {
-//                 descriptionDetail += `${connection.DT} ${connection.DS}\n`;
-//             } else if (connection.T === "C") {
-//                 const transferInfo = connection.CI ? ` (${connection.CI})` : '';
-//                 descriptionDetail += `  |  ${duration} Std mit ${connectionType} ${connectionName} nach${transferInfo}\n`;
-//             } else if (connection.T === "T") {
-//                 totalTransferTime += getMinutesFromDuration(duration);
-//                 descriptionDetail += `  =  ${duration} Std Umstiegszeit\n`;
-//             } else if (connection.T === "A") {
-//                 if (!isReturn) {
-//                     const remainingTransferTime = totalTransferTime;
-//                     descriptionDetail += `  >  ${formatDuration(remainingTransferTime)} Std Zustiegsdauer zum Touren-Ausgangspunkt\n`;
-//                     isReturn = true;
-//                 } else {
-//                     const remainingTransferTime = fromTourTrackDuration;
-//                     descriptionDetail += `  <  ${formatDuration(remainingTransferTime)} Std Rückstiegsdauer vom Touren-Ausgangspunkt\n`;
-//                 }
-//             }
-//         }
-//     }
-
-//     return descriptionDetail;
-// }
-
-// export function jsonToText(connection, toFrom = "to") {
-    
-//     let descString = '';
-
-//     const strArr = jsonToStringArray(connection, toFrom);
-    
-//     for (let i = 0; i < strArr.length; i++) {
-//         descString =+ strArr[i] + '/n' ;
-//     }
-//     logger("L184 utils/descString");
-//     logger(JSON.stringify(descString));
-
-//     return descString;
-// }
 
 export function jsonToText(connection, toFrom = "to") {
     let descString = '';
@@ -204,9 +159,16 @@ export function formatToHHMM(durationString) {
 }
 
 export function jsonToStringArray(connection, toFrom = "to"){
+    console.log("L162 / bahnhof is : ",i18n.t('bahnhof'));
+    console.log("L163 / bahnhof is : ",i18n.language);
+    // console.log("L162 / bahnhof is : ",i18n.t('bahnhof',{lng: 'en'}));
+
     // toFrom is "to" or "from" , to use the right text in end or begining of array
     // this is done by using either "totour_track_duration" or "fromtour_track_duration"
-   
+    // console.log("L212 pdfLanguage/jsonToStringArray:",lang);
+    // console.log("L213 : jsonToStringArray  i18n.language", i18n.language);
+    // console.log("L213 : jsonToStringArray  i18n.language", i18n.t('bahnhof', {lang: i18n.language}));
+
     let stringArray = [];
     if(!!connection && !!connection.connection_description_json && !!connection.return_description_json ){
         let descriptionJSON = toFrom === "to" ? 
@@ -237,10 +199,23 @@ export function jsonToStringArray(connection, toFrom = "to"){
             stringArray.push(`  >  ${formatToHHMM(connection.fromtour_track_duration)} Std Zustiegsdauer zum Touren-Ausgangspunkt`)
         }
     }
-    logger("L237 utils/stringArray");
-    logger(JSON.stringify(stringArray));
+    // logger("L237 utils/stringArray");
+    // logger(JSON.stringify(stringArray));
     return stringArray;   
 }
+
+
+export async function changeLanguageHandler (lang) {
+    if(lang in ['en','fr','de']){
+        await i18n.changeLanguage(lang);
+        return i18n.language
+    }else {
+        return null
+    }
+}
+
+
+
 // **************
 // description 1:
 // **************
