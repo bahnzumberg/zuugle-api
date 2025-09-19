@@ -1,10 +1,10 @@
 import express from 'express';
 let router = express.Router();
 import knex from "../knex";
-import {mergeGpxFilesToOne, last_two_characters} from "../utils/gpx/gpxUtils";
+import {mergeGpxFilesToOne, last_two_characters, hashedUrlsFromPoi} from "../utils/gpx/gpxUtils";
 import moment from "moment";
-import {getHost, replaceFilePath, round, get_domain_country, isNumber } from "../utils/utils";
-import {convertNumToTime, minutesFromMoment} from "../utils/helper";
+import {getHost, replaceFilePath, get_domain_country, isNumber } from "../utils/utils";
+import {minutesFromMoment} from "../utils/helper";
 import { convertDifficulty } from '../utils/dataConversion';
 // import logger from '../utils/logger';
 
@@ -271,6 +271,7 @@ const listWrapper = async (req, res) => {
     let new_filter_where_languages = ``
     let new_filter_where_difficulties = ``
     let new_filter_where_providers = ``
+    let new_filter_where_poi = ``
 
     let filter_string = filter;
     let filterJSON = undefined;
@@ -388,6 +389,19 @@ const listWrapper = async (req, res) => {
                 new_filter_where_providers = ``
             }
         }
+
+        if(filterJSON['poi']){
+            const lat = filterJSON['poi']['lat']
+            const lon = filterJSON['poi']['lon']
+            const hashed_urls = await hashedUrlsFromPoi(lat, lon, 100)
+            if(hashed_urls === null) {
+                new_filter_where_poi = ``
+            } else if (hashed_urls.length !== 0) {
+                new_filter_where_poi = `AND t.hashed_url IN ${JSON.stringify(hashed_urls).replace("[", '(').replace("]", ')').replaceAll('"', "'")} `
+            } else {
+                new_filter_where_poi = `AND t.hashed_url IN ('null') ;`
+            }
+        }
     }
 
     const tld = get_domain_country(domain).toUpperCase();
@@ -488,7 +502,8 @@ const listWrapper = async (req, res) => {
                                     ${new_filter_where_types}
                                     ${new_filter_where_languages}
                                     ${new_filter_where_difficulties}
-                                    ${new_filter_where_providers}`;
+                                    ${new_filter_where_providers}
+                                    ${new_filter_where_poi}`;
 
     
     let temp_table = '';
