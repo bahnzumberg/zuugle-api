@@ -2,7 +2,7 @@ import express from 'express';
 let router = express.Router();
 import knex from "../knex";
 router.get('/', (req, res) => listWrapper(req, res));
-import {get_domain_country} from "../utils/utils"
+import { get_domain_country } from "../utils/utils"
 
 const listWrapper = async (req, res) => {
     const search = req.query.search;
@@ -13,11 +13,12 @@ const listWrapper = async (req, res) => {
 
     let result = [];
 
-    if(!!getAll){
+    if (!!getAll) {
         result = await knex('city').select().where(where).orderBy('city', 'asc');
     } else {
-        if(!!search && search.length > 0){
-            result = await knex('city').select().where(where).andWhereRaw(`LOWER(city_name) LIKE '%${search.toLowerCase()}%'`).orderBy('city', 'asc').limit(100);
+        if (!!search && search.length > 0) {
+            // Fixed: Use parameterized query to prevent SQL injection
+            result = await knex('city').select().where(where).andWhereRaw(`LOWER(city_name) LIKE ?`, [`%${search.toLowerCase()}%`]).orderBy('city', 'asc').limit(100);
         } else {
             result = await knex('city').select().where(where).orderBy('city', 'asc').limit(100);
         }
@@ -30,7 +31,7 @@ const listWrapper = async (req, res) => {
         }
     })
 
-    res.status(200).json({success: true, cities: result});
+    res.status(200).json({ success: true, cities: result });
 }
 
 
