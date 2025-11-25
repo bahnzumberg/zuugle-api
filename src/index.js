@@ -28,6 +28,22 @@ if (process.env.NODE_ENV === "production") {
         port = 6060;
     }
 }
+
+let corsOptions = getZuugleCors();
+
+let app = express();
+
+process.setMaxListeners(0);
+// Fixed: Reduced payload limit from 1024mb to 100mb for security
+// 100mb allows for map view with 40k datapoints (~15mb) with safety margin
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: false }));
+
+// preflight options requests for json files fail otherwise
+app.options("/public/*", cors(corsOptions));
+//static file access
+app.use("/public", cors(corsOptions), express.static('public'));
+
 // Fixed: Added rate limiting to all API endpoints
 app.use('/api/tours', cors(corsOptions), hostMiddleware, standardLimiter, authenticate, tours);
 app.use('/api/cities', cors(corsOptions), hostMiddleware, standardLimiter, authenticate, cities);
