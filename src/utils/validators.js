@@ -97,8 +97,8 @@ export const validateTourType = (type) => {
     if (typeof type !== 'string') {
         return null;
     }
-    // Allow alphanumeric, underscores, spaces and ampersands (e.g. "Bike & Hike")
-    const typePattern = /^[a-zA-Z0-9_ &]+$/;
+    // Allow alphanumeric and underscores
+    const typePattern = /^[a-zA-Z0-9_]+$/;
     if (!typePattern.test(type)) {
         return null;
     }
