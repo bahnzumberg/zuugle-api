@@ -1,9 +1,8 @@
 // convert the "difficulty" value into a text value of types
 
 export const convertDifficulty = (difficulty) => {
-
   let convertedDifficulty = difficulty;
-//   console.log("Difficulty / dataConversion.js: ",difficulty);
+  //   console.log("Difficulty / dataConversion.js: ",difficulty);
 
   switch (difficulty) {
     case 1:
@@ -20,7 +19,7 @@ export const convertDifficulty = (difficulty) => {
       convertedDifficulty = "Unbekannt";
       break;
   }
-//   console.log("Difficulty / dataConversion.js: ",convertedDifficulty)
+  //   console.log("Difficulty / dataConversion.js: ",convertedDifficulty)
 
   return convertedDifficulty;
 };
