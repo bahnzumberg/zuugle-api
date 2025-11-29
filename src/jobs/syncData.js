@@ -10,19 +10,19 @@ import moment from "moment";
 
 console.log("DEVELOPMENT MODE: ", moment().format("HH:mm:ss"));
 console.log("START SYNC TOURS: ", moment().format("HH:mm:ss"));
-syncTours().then((res) => {
+syncTours().then(() => {
   console.log("DONE SYNC TOURS 1: ", moment().format("HH:mm:ss"));
   console.log("START SYNC CITIES 1: ", moment().format("HH:mm:ss"));
-  syncCities().then((res2) => {
+  syncCities().then(() => {
     console.log("DONE SYNC CITIES: ", moment().format("HH:mm:ss"));
     console.log("START FIX TOURS: ", moment().format("HH:mm:ss"));
-    fixTours().then((res4) => {
+    fixTours().then(() => {
       console.log("DONE FIX TOURS: ", moment().format("HH:mm:ss"));
       console.log("START WRITE KPIs: ", moment().format("HH:mm:ss"));
-      writeKPIs().then((res5) => {
+      writeKPIs().then(() => {
         console.log("DONE WRITING KPIs: ", moment().format("HH:mm:ss"));
         console.log("START FETCH PROVIDER: ", moment().format("HH:mm:ss"));
-        getProvider().then((res6) => {
+        getProvider().then(() => {
           console.log("FETCHED PROVIDER: ", moment().format("HH:mm:ss"));
           process.exit();
         });

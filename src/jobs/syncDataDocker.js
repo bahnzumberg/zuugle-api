@@ -2,11 +2,11 @@
 import { writeKPIs, truncateAll, restoreDump } from "./sync.js";
 
 console.log("Truncate tables");
-truncateAll().then((_) => {
+truncateAll().then(() => {
   console.log("Restore from database dump (this will take a while)");
-  restoreDump().then((_) => {
+  restoreDump().then(() => {
     console.log("Write KPIs");
-    writeKPIs().then((_) => {
+    writeKPIs().then(() => {
       console.log("Database ready!");
       process.exit();
     });

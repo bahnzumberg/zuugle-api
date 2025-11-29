@@ -8,25 +8,25 @@ import {
 import moment from "moment";
 
 console.log("START CREATE GPX FILES: ", moment().format("HH:mm:ss"));
-syncGPX().then((res) => {
+syncGPX().then(() => {
   console.log("END CREATE GPX FILES: ", moment().format("HH:mm:ss"));
   console.log(
     "START CREATE GPX ANREISE/ABREISE FILES: ",
     moment().format("HH:mm:ss"),
   );
-  syncConnectionGPX("dev").then((res1) => {
+  syncConnectionGPX("dev").then(() => {
     console.log(
       "END CREATE GPX ANREISE/ABREISE FILES: ",
       moment().format("HH:mm:ss"),
     );
     console.log("START CREATE GPX IMAGE FILES: ", moment().format("HH:mm:ss"));
-    syncGPXImage().then((res2) => {
+    syncGPXImage().then(() => {
       console.log("END CREATE GPX IMAGE FILES: ", moment().format("HH:mm:ss"));
       console.log(
         "START COPYING RANGE IMAGE FILES: ",
         moment().format("HH:mm:ss"),
       );
-      copyRangeImage().then((res3) => {
+      copyRangeImage().then(() => {
         process.exit();
       });
     });

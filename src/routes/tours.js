@@ -15,15 +15,13 @@ import {
 } from "../utils/utils";
 import { minutesFromMoment } from "../utils/helper";
 import { convertDifficulty } from "../utils/dataConversion";
-// import logger from '../utils/logger';
 
-const fs = require("fs");
-const path = require("path");
-const momenttz = require("moment-timezone");
+import fs from "fs";
+import path from "path";
+import momenttz from "moment-timezone";
 
 router.get("/", (req, res) => listWrapper(req, res));
 router.get("/filter", (req, res) => filterWrapper(req, res));
-router.get("/map", (req, res) => mapWrapper(req, res));
 router.get("/provider/:provider", (req, res) => providerWrapper(req, res));
 
 router.get("/total", (req, res) => totalWrapper(req, res));
@@ -88,12 +86,6 @@ const getWrapper = async (req, res) => {
       ? req.params.city
       : null;
   const id = parseInt(req.params.id, 10);
-  // console.log("===================")
-  // console.log(" city from getWrapper : ", city )
-  // console.log(" req.params from getWrapper : ", req.params )
-  // console.log("===================")
-  // console.log(" req.query from getWrapper : ", (req.query) )
-  // console.log("===================")
   const domain = req.query.domain;
   const tld = get_domain_country(domain);
 
@@ -239,7 +231,7 @@ const getWrapper = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Internal server error: " + error,
     });
   }
 };
@@ -305,7 +297,8 @@ const listWrapper = async (req, res) => {
   let filterJSON = undefined;
   try {
     filterJSON = JSON.parse(filter_string);
-  } catch (e) {
+  } catch (error) {
+    console.log("Error parsing filter JSON: ", error);
     filterJSON = undefined;
   }
 
@@ -728,8 +721,8 @@ const listWrapper = async (req, res) => {
         });
       }
     }
-  } catch (e) {
-    console.error("error inserting into logsearchphrase: ", e);
+  } catch (error) {
+    console.error("error inserting into logsearchphrase: ", error);
   }
 
   // preparing tour entries
@@ -742,10 +735,11 @@ const listWrapper = async (req, res) => {
     await Promise.all(
       result.map(
         (entry) =>
-          new Promise(async (resolve) => {
+          new Promise((resolve) => {
             // The function prepareTourEntry will remove the column hashed_url, so it is not send to frontend
-            entry = await prepareTourEntry(entry, city, domain, addDetails);
-            resolve(entry);
+            prepareTourEntry(entry, city, domain, addDetails).then(
+              (updatedEntry) => resolve(updatedEntry),
+            );
           }),
       ),
     );
@@ -1208,28 +1202,6 @@ const compareConnectionReturns = (conn1, conn2) => {
   );
 };
 
-const getWeekday = (date) => {
-  const day = moment(date).day();
-  switch (day) {
-    case 0:
-      return "sun";
-    case 1:
-      return "mon";
-    case 2:
-      return "tue";
-    case 3:
-      return "wed";
-    case 4:
-      return "thu";
-    case 5:
-      return "fri";
-    case 6:
-      return "sat";
-    default:
-      return "mon";
-  }
-};
-
 const tourGpxWrapper = async (req, res) => {
   const id = req.params.id;
   const type = req.query.type ? req.query.type : "gpx";
@@ -1308,46 +1280,6 @@ const tourGpxWrapper = async (req, res) => {
   }
 };
 
-const getMissingConnectionDays = (connections) => {
-  let toReturn = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-  if (!!connections && connections.length > 0) {
-    if (connections.find((c) => c.weekday === "sun")) {
-      toReturn = toReturn.filter((c) => c !== "So");
-    }
-    if (connections.find((c) => c.weekday === "mon")) {
-      toReturn = toReturn.filter((c) => c !== "Mo");
-    }
-    if (connections.find((c) => c.weekday === "tue")) {
-      toReturn = toReturn.filter((c) => c !== "Di");
-    }
-    if (connections.find((c) => c.weekday === "wed")) {
-      toReturn = toReturn.filter((c) => c !== "Mi");
-    }
-    if (connections.find((c) => c.weekday === "thu")) {
-      toReturn = toReturn.filter((c) => c !== "Do");
-    }
-    if (connections.find((c) => c.weekday === "fri")) {
-      toReturn = toReturn.filter((c) => c !== "Fr");
-    }
-    if (connections.find((c) => c.weekday === "sat")) {
-      toReturn = toReturn.filter((c) => c !== "Sa");
-    }
-  }
-  return toReturn;
-};
-
-const getConnectionsByWeekday = (connections, weekday) => {
-  if (!!connections && connections.length > 0) {
-    const found = connections.filter((c) => c.weekday === weekday);
-    if (!!found && found.length > 0) {
-      return found;
-    } else {
-      return getConnectionsByWeekday(connections, connections[0].weekday);
-    }
-  }
-  return [];
-};
-
 const prepareTourEntry = async (entry, city, domain, addDetails = true) => {
   if (!(!!entry && !!entry.provider)) return entry;
 
@@ -1399,6 +1331,7 @@ const prepareTourEntry = async (entry, city, domain, addDetails = true) => {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { ["hashed_url"]: remove, ...rest } = entry;
   return rest;
 };
