@@ -1,52 +1,39 @@
 import express from "express";
-let router = express.Router();
 import knex from "../knex";
-router.get("/", (req, res) => listWrapper(req, res));
+import { searchPhrasesQuerySchema } from "../schemas/searchPhrasesQuery.schema";
 
-//calls the database statement (createQuery) and sends the therefor needed props
-//it also waits for the result of the statement and returns the status of it
-const listWrapper = async (req, res) => {
-  let search = req.query.search;
+const router = express.Router();
+router.get("/", async (req, res) => {
+  const parsed = searchPhrasesQuerySchema.safeParse(req.query);
 
-  if (typeof search !== "string") {
-    search = "";
-    return res.status(400).json({
-      success: false,
-      error: "Bad Request - no valid search term",
-    });
+  if (!parsed.success) {
+    // TODO: test what this looks like on the client side
+    return res.status(400).json({ errors: parsed.error.message });
   }
 
-  if (!search || search.length == 0) {
-    return res.status(200).json({ success: true, error: "no search term" });
-  }
+  const { search, city, language, tld } = parsed.data;
 
-  if (search.length > 128) {
-    return res.status(400).json({
-      success: false,
-      error: "Bad Request - search term is too long (max. 128 characters)",
-    });
-  }
-
-  const city = req.query.city;
-  const language = req.query.language;
-  const tld = req.query.tld.toUpperCase();
-
-  const item = await createQuery(
+  const items = await createQuery(
     "phrase",
     "search_phrase",
-    city,
+    city || "",
     search,
-    language,
-    tld,
+    language || "",
+    tld || "",
   );
 
-  const result = item;
-
-  return res.status(200).json({ success: true, items: result });
-};
+  return res.status(200).json({ success: true, items });
+});
 
 //queries through the database table "logsearchphrase" and returns the phrases that start with the search phrase
-const createQuery = async (field, alias, city, search, language, tld) => {
+const createQuery = async (
+  field: string,
+  alias: string,
+  city: string,
+  search: string,
+  language: string,
+  tld: string,
+) => {
   let query = knex("logsearchphrase")
     .select(knex.raw("MIN(??) as ??", [field, alias])) // shortest original phrase
     .count("* as CNT")
@@ -77,6 +64,7 @@ const createQuery = async (field, alias, city, search, language, tld) => {
 
   const result = queryResult.map((entry) => {
     return {
+      // @ts-expect-error TODO: fix at later time
       suggestion: entry[alias],
     };
   });
