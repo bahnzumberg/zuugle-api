@@ -1,0 +1,37 @@
+/import type { Knex } from "knex";
+
+// Update with your config settings.
+
+const config: Record<string, Knex.Config> = {
+  production: {
+    client: "pg",
+    connection: {
+      host: "",
+      port: 5432,
+      user: "zuugle_suche",
+      password: "",
+      database: "zuugle_suchseite_db",
+    },
+    pool: {
+      min: 2,
+      max: 10,
+    },
+  },
+
+  development: {
+    client: "pg",
+    connection: {
+      host: "localhost",
+      port: 5433,
+      user: "postgres",
+      password: "docker",
+      database: "zuugle_suchseite_dev",
+    },
+    pool: {
+      min: 2,
+      max: 10,
+    },
+  },
+};
+
+export default config;

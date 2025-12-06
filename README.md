@@ -31,9 +31,9 @@ and install all dependencies.
 
 Create a copy of each connection file and rename it. We need four "knexfile\*" files in the end.
 
-    cp ./src/knexfileTourenDb.js.example ./src/knexfileTourenDb.js
+    cp ./src/knexfileTourenDb.ts.example ./src/knexfileTourenDb.ts
 
-    cp ./src/knexfile.js.example ./src/knexfile.js
+    cp ./src/knexfile.ts.example ./src/knexfile.ts
 
 ## Load data and run backend
 
