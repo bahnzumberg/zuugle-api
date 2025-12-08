@@ -1,11 +1,10 @@
 import express from "express";
-let router = express.Router();
 import knex from "../knex";
 import {
   mergeGpxFilesToOne,
   last_two_characters,
   hashedUrlsFromPoi,
-} from "../utils/gpx/gpxUtils";
+} from "../utils/gpxUtils";
 import moment from "moment";
 import {
   getHost,
@@ -13,259 +12,115 @@ import {
   get_domain_country,
   isNumber,
 } from "../utils/utils";
-import { minutesFromMoment } from "../utils/helper";
-import { convertDifficulty } from "../utils/dataConversion";
+import { minutesFromMoment } from "../utils/utils";
+import { convertDifficulty } from "../utils/utils";
 
 import fs from "fs";
 import path from "path";
 import momenttz from "moment-timezone";
+import {
+  providerQuerySchema,
+  totalQuerySchema,
+  tourDetailsParamsSchema,
+  tourDetailsQuerySchema,
+  toursQuerySchema,
+} from "../schemas/toursQueries.schema";
+import { getProvidersByProvider } from "../repositories/provider.repository";
+import { getKpiByNames } from "../repositories/kpi.repository";
+import z from "zod";
+import { getTourWithFallback } from "../repositories/tour.repository";
 
-router.get("/", (req, res) => listWrapper(req, res));
+const router = express.Router();
+
 router.get("/filter", (req, res) => filterWrapper(req, res));
-router.get("/provider/:provider", (req, res) => providerWrapper(req, res));
 
-router.get("/total", (req, res) => totalWrapper(req, res));
 router.get("/:id/connections-extended", (req, res) =>
   connectionsExtendedWrapper(req, res),
 );
 router.get("/:id/gpx", (req, res) => tourGpxWrapper(req, res));
-router.get("/:id/:city", (req, res) => getWrapper(req, res));
 
-const providerWrapper = async (req, res) => {
-  const provider = req.params.provider;
-  const approved = await knex("provider")
-    .select("allow_gpx_download")
-    .where({ provider: provider })
-    .first();
-  if (approved) {
+router.get("/provider/:provider", async (req, res) => {
+  const parsed = providerQuerySchema.safeParse(req.query);
+
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.message });
+  }
+
+  const provider = parsed.data.provider;
+  const providers = await getProvidersByProvider(provider);
+
+  if (providers.length > 0) {
     res.status(200).json({
       success: true,
-      allow_gpx_download: approved.allow_gpx_download,
+      allow_gpx_download: providers[0].allow_gpx_download,
     });
   } else {
     res.status(404).json({ success: false, message: "Provider not found" });
   }
-};
+});
 
-const totalWrapper = async (req, res) => {
-  const city = req.query.city;
-  const total = await knex.raw(`SELECT 
-                                tours.value as tours,
-                                COALESCE(tours_city.value, 0) AS tours_city,
-                                conn.value as connections,
-                                ranges.value AS ranges,
-                                cities.value AS cities,
-                                provider.value AS provider 
-                                FROM kpi AS tours 
-                                LEFT OUTER JOIN kpi AS tours_city 
-                                ON tours_city.name='total_tours_${city}' 
-                                LEFT OUTER JOIN kpi AS conn 
-                                ON conn.name='total_connections' 
-                                LEFT OUTER JOIN kpi AS ranges 
-                                ON ranges.name='total_ranges' 
-                                LEFT OUTER JOIN kpi AS cities 
-                                ON cities.name='total_cities' 
-                                LEFT OUTER JOIN kpi AS provider ON provider.name='total_provider' 
-                                WHERE tours.name='total_tours';`);
+router.get("/total", async (req, res) => {
+  const parsed = totalQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.message });
+  }
+  const city = parsed.data.city;
+  const keys = [
+    "total_tours",
+    "total_connections",
+    "total_ranges",
+    "total_cities",
+    "total_provider",
+  ];
+  if (city) {
+    keys.push(`total_tours_${city}`);
+  }
+  const resultMap = await getKpiByNames(keys);
 
   res.status(200).json({
     success: true,
-    total_tours: total.rows[0]["tours"],
-    tours_city: total.rows[0]["tours_city"],
-    total_connections: total.rows[0]["connections"],
-    total_ranges: total.rows[0]["ranges"],
-    total_cities: total.rows[0]["cities"],
-    total_provider: total.rows[0]["provider"],
+    total_tours: resultMap.total_tours || 0,
+    tours_city: resultMap[`total_tours_${city}`] || 0,
+    total_connections: resultMap.total_connections || 0,
+    total_ranges: resultMap.total_ranges || 0,
+    total_cities: resultMap.total_cities || 0,
+    total_provider: resultMap.total_provider || 0,
   });
-};
+});
 
-const getWrapper = async (req, res) => {
-  const city = req.query.city
-    ? req.query.city
-    : req.params.city
-      ? req.params.city
-      : null;
-  const id = parseInt(req.params.id, 10);
-  const domain = req.query.domain;
-  const tld = get_domain_country(domain);
-
-  if (isNaN(id)) {
-    res.status(400).json({ success: false, message: "Invalid tour ID" });
-    return;
-  }
-
-  if (!id) {
-    res.status(404).json({ success: false });
-    return;
-  }
-
-  let new_search_where_city = `AND c2t.stop_selector='y' `;
-  if (!!city && city.length > 0 && city != "no-city") {
-    new_search_where_city = `AND c2t.city_slug='${city}' `;
-  }
-
-  const sql = `SELECT 
-                id, 
-                url, 
-                provider, 
-                hashed_url, 
-                description, 
-                image_url, 
-                ascent, 
-                descent, 
-                difficulty, 
-                difficulty_orig, 
-                duration, 
-                distance, 
-                title, 
-                type, 
-                number_of_days, 
-                traverse, 
-                country, 
-                state, 
-                range_slug, 
-                range, 
-                season, 
-                month_order, 
-                quality_rating, 
-                max_ele,
-                min_connection_duration,
-                min_connection_no_of_transfers,
-                ROUND(avg_total_tour_duration*100/25)*25/100 as avg_total_tour_duration,
-                valid_tour
-                FROM ( 
-                SELECT t.id, t.url, t.provider, t.hashed_url, t.description, t.image_url, t.ascent,
-                t.descent, t.difficulty, t.difficulty_orig , t.duration, t.distance, t.title, t.type,
-                t.number_of_days, t.traverse, t.country, t.state, t.range_slug, t.range, t.season,
-                t.month_order, t.quality_rating, t.max_ele,
-                1 AS valid_tour,
-                c2t.min_connection_duration,
-                c2t.min_connection_no_of_transfers,
-                c2t.avg_total_tour_duration
-                FROM tour as t 
-                INNER JOIN city2tour AS c2t 
-                ON c2t.tour_id=t.id 
-                WHERE c2t.reachable_from_country='${tld}' 
-                ${new_search_where_city}
-                AND t.id=${id}
-                UNION 
-                SELECT t.id, t.url, t.provider, t.hashed_url, t.description, t.image_url, t.ascent, 
-                t.descent, t.difficulty, t.difficulty_orig , t.duration, t.distance, t.title, t.type, 
-                t.number_of_days, t.traverse, t.country, t.state, t.range_slug, t.range, 
-                'g' as season, 0 as month_order, 0 as quality_rating, 
-                0 as max_ele, 
-                0 AS valid_tour,
-                0 as min_connection_duration,
-                0 as min_connection_no_of_transfers,
-                0 as avg_total_tour_duration
-                FROM tour_inactive as t WHERE t.id=${id}
-                ORDER BY valid_tour DESC LIMIT 1) as a`;
-
-  const sql3 = `SELECT 
-                id, 
-                url, 
-                provider, 
-                hashed_url, 
-                description, 
-                image_url, 
-                ascent, 
-                descent, 
-                difficulty, 
-                difficulty_orig, 
-                duration, 
-                distance, 
-                title, 
-                type, 
-                number_of_days, 
-                traverse, 
-                country, 
-                state, 
-                range_slug, 
-                range, 
-                season, 
-                month_order, 
-                quality_rating, 
-                max_ele,
-                min_connection_duration,
-                min_connection_no_of_transfers,
-                ROUND(avg_total_tour_duration*100/25)*25/100 as avg_total_tour_duration,
-                valid_tour
-                FROM ( 
-                SELECT t.id, t.url, t.provider, t.hashed_url, t.description, t.image_url, t.ascent,
-                t.descent, t.difficulty, t.difficulty_orig , t.duration, t.distance, t.title, t.type,
-                t.number_of_days, t.traverse, t.country, t.state, t.range_slug, t.range, t.season,
-                t.month_order, t.quality_rating, t.max_ele,
-                2 AS valid_tour,
-                c2t.min_connection_duration,
-                c2t.min_connection_no_of_transfers,
-                c2t.avg_total_tour_duration
-                FROM tour as t 
-                INNER JOIN city2tour AS c2t 
-                ON c2t.tour_id=t.id 
-                WHERE c2t.reachable_from_country='${tld}' 
-                AND t.id=${id}
-                ORDER BY valid_tour DESC LIMIT 1) as a`;
-
+router.get("/:id/:city", async (req, res) => {
   try {
-    let entry2 = await knex.raw(sql);
-    let entry = entry2.rows[0];
-
-    if (!entry) {
-      // If above sql is empty, it might be, that the selected city has no working connection to the tour
-      // So the query checks the active tours without city and returns 2 as valid_tour
-      entry2 = await knex.raw(sql3);
-      entry = entry2.rows[0];
-
-      if (!entry) {
-        res.status(404).json({
-          success: false,
-          message: "Tour not found",
-        });
-        return;
-      }
+    const params = tourDetailsParamsSchema.parse(req.params);
+    const query = tourDetailsQuerySchema.parse(req.query);
+    const city = query.city ?? params.city;
+    const tld = get_domain_country(query.domain);
+    const tour = await getTourWithFallback(params.id, tld, city);
+    if (!tour) {
+      return res.status(404).json({
+        success: false,
+        message: "Tour not found",
+      });
     }
 
     // The function prepareTourEntry will remove the column hashed_url, so it is not send to frontend
-    entry = await prepareTourEntry(entry, city, domain, true);
-    res.status(200).json({ success: true, tour: entry });
+    const result = await prepareTourEntry(tour, city, query.domain, true);
+
+    res.json({ success: true, tour: result });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error: " + error,
-    });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        errors: z.prettifyError(error),
+      });
+    }
   }
-};
+});
 
-const listWrapper = async (req, res) => {
-  const showRanges = !!req.query.ranges;
-  const page = req.query.page || 1;
-  const map = req.query.map;
-  const bounds = req.query.bounds;
-
-  const search = req.query.search;
-  const currLanguage = req.query.currLanguage ? req.query.currLanguage : "de"; // this is the menue language the user selected
-  const city = req.query.city;
-  const range = req.query.range;
-  const state = req.query.state;
-  const country = req.query.country;
-  const type = req.query.type;
-  const domain = req.query.domain;
-  const provider = req.query.provider;
-  const language = req.query.language; // this referres to the column in table tour: The tour description is in which language
-  const filter = req.query.filter;
-  const poi = req.query.poi;
-
-  const parsedBounds = bounds ? JSON.parse(bounds) : null;
-  const coordinatesNorthEast = parsedBounds ? parsedBounds._northEast : null;
-  const coordinatesSouthWest = parsedBounds ? parsedBounds._southWest : null;
-
-  const parsedPoi = poi ? JSON.parse(poi) : null;
-
-  // variables initialized depending on availability of 'map' in the request
-  //const map = req && req.query && req.query.map === "true"; // add optional chaining
-  //let useLimit = !!!map;  // initialise with true
-  //let addDetails = !!!map; // initialise with true
-  let addDetails = true;
+router.get("/", async (req, res) => {
+  const parsed = toursQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.message });
+  }
 
   let new_search_where_searchterm = ``;
   let new_search_order_searchterm = ``;
@@ -293,15 +148,6 @@ const listWrapper = async (req, res) => {
   let new_filter_where_providers = ``;
   let new_filter_where_poi = ``;
 
-  let filter_string = filter;
-  let filterJSON = undefined;
-  try {
-    filterJSON = JSON.parse(filter_string);
-  } catch (error) {
-    console.log("Error parsing filter JSON: ", error);
-    filterJSON = undefined;
-  }
-
   const defaultFilter = {
     singleDayTour: true,
     multipleDayTour: true,
@@ -311,9 +157,9 @@ const listWrapper = async (req, res) => {
   };
 
   // merge with filterJSON
-  filterJSON = {
+  const filterJSON = {
     ...defaultFilter,
-    ...filterJSON,
+    ...parsed.data.filter,
   };
 
   if (
@@ -419,7 +265,7 @@ const listWrapper = async (req, res) => {
     }
   }
 
-  const tld = get_domain_country(domain).toUpperCase();
+  const tld = get_domain_country(parsed.data.domain);
 
   if (!!city && city.length > 0) {
     new_search_where_city = `AND c2t.city_slug='${city}' `;
@@ -737,8 +583,8 @@ const listWrapper = async (req, res) => {
         (entry) =>
           new Promise((resolve) => {
             // The function prepareTourEntry will remove the column hashed_url, so it is not send to frontend
-            prepareTourEntry(entry, city, domain, addDetails).then(
-              (updatedEntry) => resolve(updatedEntry),
+            prepareTourEntry(entry, city, domain, true).then((updatedEntry) =>
+              resolve(updatedEntry),
             );
           }),
       ),
@@ -756,7 +602,7 @@ const listWrapper = async (req, res) => {
   let ranges = [];
   let range_result = undefined;
 
-  if (showRanges) {
+  if (parsed.data.showRanges) {
     const months = [
       "jan",
       "feb",
@@ -790,7 +636,6 @@ const listWrapper = async (req, res) => {
                             LIMIT 10`;
 
     range_result = await knex.raw(range_sql);
-    // console.log("range_sql: ", range_sql)
 
     if (!!range_result && !!range_result.rows) {
       ranges = range_result.rows;
@@ -808,11 +653,11 @@ const listWrapper = async (req, res) => {
     success: true,
     tours: result,
     total: sql_count,
-    page: page,
+    page: parsed.data.page,
     ranges: ranges,
     markers: markers_array,
   });
-}; // end of listWrapper
+});
 
 const filterWrapper = async (req, res) => {
   const search = req.query.search;
