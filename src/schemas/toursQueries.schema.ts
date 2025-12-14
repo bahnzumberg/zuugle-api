@@ -28,6 +28,8 @@ const boundsSchema = z
       : undefined,
   );
 
+export type Bounds = z.infer<typeof boundsSchema>;
+
 const filterSchema = z
   .object({
     singleDayTour: z.boolean(),
@@ -51,11 +53,15 @@ const filterSchema = z
   })
   .partial();
 
+export type ToursFilter = z.infer<typeof filterSchema>;
+
 const poiSchema = z.object({
   lat: z.number(),
   lng: z.number(),
-  radius: z.number(),
+  radius: z.number().optional(),
 });
+
+export type LatLngPOI = z.infer<typeof poiSchema>;
 
 export const providerQuerySchema = z.object({
   provider: z.string(),
@@ -71,6 +77,16 @@ export const tourDetailsParamsSchema = z.object({
 });
 
 export const tourDetailsQuerySchema = z.object({
+  city: citySchema,
+  domain: z.string(),
+});
+
+export const connectionsExtendedParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  city: citySchema,
+});
+
+export const connectionsExtendedQuerySchema = z.object({
   city: citySchema,
   domain: z.string(),
 });
@@ -91,4 +107,11 @@ export const toursQuerySchema = z.object({
   provider: z.string().optional(),
   filter: filterSchema.optional(),
   poi: poiSchema.optional(),
+});
+
+export const filterQuerySchema = z.object({
+  search: z.string().optional(),
+  city: citySchema,
+  domain: z.string(),
+  currLanguage: z.string().default("de"),
 });

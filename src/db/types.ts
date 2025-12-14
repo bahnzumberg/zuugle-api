@@ -2,7 +2,7 @@ export interface Database {
   // add other tables as needed
 
   logsearchphrase: {
-    id: number;
+    id?: number;
     phrase: string;
     num_results: number;
     city_slug: string;
