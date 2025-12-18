@@ -7,3 +7,8 @@
 **Vulnerability:** SQL Injection in `src/routes/tours.js` (`connectionsExtendedWrapper`) due to string interpolation of `id` and `city` in `knex.raw`.
 **Learning:** The pattern of using template literals in `knex.raw` was pervasive. Input validation for `req.params` was also missing.
 **Prevention:** Audit all `knex.raw` usages. Enforce parameterization and type checking (e.g., `parseInt`).
+
+## 2025-02-12 - SQL Injection in Search/Filter
+**Vulnerability:** Extensive SQL injection in `src/routes/tours.js` (`listWrapper` and `filterWrapper`) via dynamic construction of `WHERE` clauses using string interpolation for `city`, `filter`, and search parameters.
+**Learning:** Legacy code used complex string concatenation for dynamic queries, making parameterization difficult. The `filter` parameter (JSON string) was particularly dangerous as it was parsed and values interpolated.
+**Prevention:** Refactored dynamic query construction to use a structured approach (parts with SQL and bindings) ensuring all user inputs are passed as parameters to `knex.raw`.
