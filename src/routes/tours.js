@@ -290,11 +290,12 @@ const listWrapper = async (req, res) => {
 
     const parsedPoi = poi ? JSON.parse(poi) : null;
 
-    // variables initialized depending on availability of 'map' in the request
-    //const map = req && req.query && req.query.map === "true"; // add optional chaining
-    //let useLimit = !!!map;  // initialise with true
-    //let addDetails = !!!map; // initialise with true
     let addDetails = true;
+
+    // Helper arrays for SQL bindings
+    let mainBindings = [];
+    let filterBindings = [];
+    let orderBindings = [];
 
     let new_search_where_searchterm = ``;
     let new_search_order_searchterm = ``;
@@ -406,51 +407,42 @@ const listWrapper = async (req, res) => {
             new_filter_where_Distance += `AND t.distance <= ${filterJSON["maxDistance"]} `;
         }
 
-        if (filterJSON["ranges"]) {
-            new_filter_where_ranges = `AND t.range IN ${JSON.stringify(filterJSON["ranges"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_ranges === "AND t.range IN () ;") {
-                new_filter_where_ranges = ``;
-            }
+        if (filterJSON["ranges"] && Array.isArray(filterJSON["ranges"]) && filterJSON["ranges"].length > 0) {
+            new_filter_where_ranges = `AND t.range IN (?) `;
+            filterBindings.push(filterJSON["ranges"]);
         }
 
-        if (filterJSON["types"]) {
-            new_filter_where_types = `AND t.type IN ${JSON.stringify(filterJSON["types"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_types === "AND t.type IN () ;") {
-                new_filter_where_types = ``;
-            }
+        if (filterJSON["types"] && Array.isArray(filterJSON["types"]) && filterJSON["types"].length > 0) {
+            new_filter_where_types = `AND t.type IN (?) `;
+            filterBindings.push(filterJSON["types"]);
         }
 
-        if (filterJSON["languages"]) {
-            new_filter_where_languages = `AND t.text_lang IN ${JSON.stringify(filterJSON["languages"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_languages === "AND t.text_lang IN () ;") {
-                new_filter_where_languages = ``;
-            }
+        if (filterJSON["languages"] && Array.isArray(filterJSON["languages"]) && filterJSON["languages"].length > 0) {
+            new_filter_where_languages = `AND t.text_lang IN (?) `;
+            filterBindings.push(filterJSON["languages"]);
         }
 
-        if (filterJSON["difficulties"]) {
-            new_filter_where_difficulties = `AND t.difficulty IN ${JSON.stringify(filterJSON["difficulties"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_difficulties === "AND t.difficulty IN () ;") {
-                new_filter_where_difficulties = ``;
-            }
+        if (filterJSON["difficulties"] && Array.isArray(filterJSON["difficulties"]) && filterJSON["difficulties"].length > 0) {
+            new_filter_where_difficulties = `AND t.difficulty IN (?) `;
+            filterBindings.push(filterJSON["difficulties"]);
         }
 
-        if (filterJSON["providers"]) {
-            new_filter_where_providers = `AND t.provider IN ${JSON.stringify(filterJSON["providers"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_providers === "AND t.provider IN () ;") {
-                new_filter_where_providers = ``;
-            }
+        if (filterJSON["providers"] && Array.isArray(filterJSON["providers"]) && filterJSON["providers"].length > 0) {
+            new_filter_where_providers = `AND t.provider IN (?) `;
+            filterBindings.push(filterJSON["providers"]);
         }
     }
 
     const tld = get_domain_country(domain).toUpperCase();
 
+    // Prepare main bindings
+    // Note: tld is injected in the WHERE clause first: WHERE c2t.reachable_from_country=?
+    // So it must be the first binding.
+    mainBindings.push(tld);
+
     if (!!city && city.length > 0) {
-        new_search_where_city = `AND c2t.city_slug='${city}' `;
+        new_search_where_city = `AND c2t.city_slug=? `;
+        mainBindings.push(city);
     } else {
         new_search_where_city = `AND c2t.stop_selector='y' `;
     }
@@ -468,43 +460,52 @@ const listWrapper = async (req, res) => {
             postgresql_language_code = "english";
         }
 
-        // If there is more than one search term, the AI is superior,
-        // is there only a single word, the standard websearch of PostgreSQL ist better.
-
         if (search.trim().split(/\s+/).length === 1) {
             // search consists of a single word
-            new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery('${postgresql_language_code}', '${search}') `;
-            new_search_order_searchterm = `COALESCE(ts_rank(COALESCE(t.search_column, ''), COALESCE(websearch_to_tsquery('${postgresql_language_code}', '${search}'), '')), 0) DESC, `;
-            // console.log("Websearch")
+            new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery(?, ?) `;
+            mainBindings.push(postgresql_language_code);
+            mainBindings.push(search);
+
+            new_search_order_searchterm = `COALESCE(ts_rank(COALESCE(t.search_column, ''), COALESCE(websearch_to_tsquery(?, ?), '')), 0) DESC, `;
+            orderBindings.push(postgresql_language_code);
+            orderBindings.push(search);
         } else {
-            new_search_where_searchterm = `AND ai_search_column <-> (SELECT get_embedding('query: ${search.toLowerCase()}')) < 0.6 `;
-            new_search_order_searchterm = `ai_search_column <-> (SELECT get_embedding('query: ${search}')) ASC, `;
-            // console.log("AI search")
+            new_search_where_searchterm = `AND ai_search_column <-> (SELECT get_embedding(?)) < 0.6 `;
+            mainBindings.push(`query: ${search.toLowerCase()}`);
+
+            new_search_order_searchterm = `ai_search_column <-> (SELECT get_embedding(?)) ASC, `;
+            orderBindings.push(`query: ${search}`);
         }
     }
 
     if (!!range && range.length > 0) {
-        new_search_where_range = `AND range='${range}' `;
+        new_search_where_range = `AND range=? `;
+        mainBindings.push(range);
     }
 
     if (!!state && state.length > 0) {
-        new_search_where_state = `AND state='${state}' `;
+        new_search_where_state = `AND state=? `;
+        mainBindings.push(state);
     }
 
     if (!!country && country.length > 0) {
-        new_search_where_country = `AND country='${country}' `;
+        new_search_where_country = `AND country=? `;
+        mainBindings.push(country);
     }
 
     if (!!type && type.length > 0) {
-        new_search_where_type = `AND type='${type}' `;
+        new_search_where_type = `AND type=? `;
+        mainBindings.push(type);
     }
 
     if (!!provider && provider.length > 0) {
-        new_search_where_provider = `AND t.provider='${provider}' `;
+        new_search_where_provider = `AND t.provider=? `;
+        mainBindings.push(provider);
     }
 
     if (!!language && language.length > 0) {
-        new_search_where_language = `AND text_lang='${language}'  `;
+        new_search_where_language = `AND text_lang=? `;
+        mainBindings.push(language);
     }
 
     if (parsedPoi && parsedPoi.lat && parsedPoi.lng) {
@@ -513,7 +514,8 @@ const listWrapper = async (req, res) => {
         if (hashed_urls === null) {
             new_filter_where_poi = ``;
         } else if (hashed_urls.length !== 0) {
-            new_filter_where_poi = `AND t.hashed_url IN ${JSON.stringify(hashed_urls).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_poi = `AND t.hashed_url IN (?) `;
+            filterBindings.push(hashed_urls);
         } else {
             new_filter_where_poi = `AND t.hashed_url IN ('null') ;`;
         }
@@ -527,7 +529,11 @@ const listWrapper = async (req, res) => {
         const latSW = coordinatesSouthWest.lat.toString();
         const lngSW = coordinatesSouthWest.lng.toString();
 
-        new_search_where_map = `AND c2t.connection_arrival_stop_lon between (${lngSW})::numeric and (${lngNE})::numeric AND c2t.connection_arrival_stop_lat between (${latSW})::numeric AND (${latNE})::numeric `;
+        new_search_where_map = `AND c2t.connection_arrival_stop_lon between ?::numeric and ?::numeric AND c2t.connection_arrival_stop_lat between ?::numeric AND ?::numeric `;
+        mainBindings.push(lngSW);
+        mainBindings.push(lngNE);
+        mainBindings.push(latSW);
+        mainBindings.push(latNE);
     }
 
     const global_where_condition = `${new_search_where_city}
@@ -598,9 +604,11 @@ const listWrapper = async (req, res) => {
                         FROM city2tour AS c2t 
                         INNER JOIN tour AS t 
                         ON c2t.tour_id=t.id 
-                        WHERE c2t.reachable_from_country='${tld}' 
+                        WHERE c2t.reachable_from_country=?
                         ${global_where_condition};`;
-    await knex.raw(temporary_sql);
+
+    // Pass concatenated bindings (main + filter)
+    await knex.raw(temporary_sql, mainBindings.concat(filterBindings));
     // console.log("temporary_sql = ", temporary_sql);
 
     try {
@@ -659,7 +667,7 @@ const listWrapper = async (req, res) => {
     let result_sql = null;
     let result = [];
     try {
-        result_sql = await knex.raw(new_search_sql); // fire the DB call here
+        result_sql = await knex.raw(new_search_sql, orderBindings); // Pass orderBindings
         if (result_sql && result_sql.rows) {
             result = result_sql.rows;
         } else {
