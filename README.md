@@ -1,5 +1,25 @@
 # Zuugle API
 
+## Technology Stack
+
+```bash
+src/
+├─ server.ts              # Entry point
+├─ routes/
+│   ├─ index.ts           # Aggregate all routers
+│   └─ search.ts          # Your search route
+├─ controllers/
+│   └─ searchController.ts # Business logic (calls Knex)
+├─ db/
+│   ├─ knex.ts            # Knex instance
+│   ├─ knexfile.ts
+│   └─ queries/           # Optional: reusable query functions
+├─ schemas/
+│   ├─ searchSchema.ts    # Zod schemas for requests/responses
+├─ types/
+│   └─ db.ts              # TypeScript DB table interfaces
+```
+
 ## First time installation
 
 To install nvm see e.g. https://www.freecodecamp.org/news/node-version-manager-nvm-install-guide/
@@ -65,6 +85,12 @@ And in a new terminal start the update script:
     npm run start
 
 Hint: On local environment using the function logger('anytext'); writes to the file api.logs in your zuugle-api/logs directory. This is helpful, when debugging SQL code, etc.
+
+At any point you can inspect the SQL:
+
+```ts
+console.log(q.toSQL().toNative());
+```
 
 ## Follow frontend Readme
 

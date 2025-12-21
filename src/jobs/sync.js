@@ -1,9 +1,6 @@
 import knexTourenDb from "../knexTourenDb";
 import knex from "../knex";
-import {
-  createImagesFromMap,
-  last_two_characters,
-} from "../utils/gpx/gpxUtils";
+import { createImagesFromMap, last_two_characters } from "../utils/gpxUtils";
 import moment from "moment";
 import { create } from "xmlbuilder2";
 import fs from "fs-extra";

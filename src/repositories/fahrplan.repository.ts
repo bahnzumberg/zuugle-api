@@ -1,0 +1,21 @@
+export type ConnectionsResult = {
+  calendar_date: string;
+  connection_departure_datetime: string;
+  connection_arrival_datetime: string;
+  connection_duration: string;
+  connection_no_of_transfers: number;
+  connection_returns_trips_back: number;
+  return_departure_datetime: string;
+  return_duration: string;
+  return_no_of_transfers: number;
+  return_arrival_datetime: string;
+  totour_track_duration: number;
+  fromtour_track_duration: number;
+  connection_description_json: string;
+  return_description_json: string;
+  totour_track_key: string;
+  fromtour_track_key: string;
+  connection_duration_minutes?: number;
+  return_duration_minutes?: number;
+  gpx_file?: string;
+};

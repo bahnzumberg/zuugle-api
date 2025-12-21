@@ -28,6 +28,7 @@ import {
   orderBySearchTerm,
 } from "../repositories/tour.repository";
 import { insertLogsearchphrase } from "../repositories/logsearchphrase.repository";
+import { ConnectionsResult } from "../repositories/fahrplan.repository";
 
 const router = express.Router();
 
@@ -609,8 +610,8 @@ router.get("/filter", async (req, res) => {
 
 router.get("/:id/connections-extended", async (req, res) => {
   const params = connectionsExtendedParamsSchema.parse(req.params);
-    const query = connectionsExtendedQuerySchema.parse(req.query);
-    const city = query.city ?? params.city;
+  const query = connectionsExtendedQuerySchema.parse(req.query);
+  const city = query.city ?? params.city;
   const id = params.id;
   const domain = query.domain;
 
@@ -619,55 +620,53 @@ router.get("/:id/connections-extended", async (req, res) => {
     return;
   }
 
-  let connections = [];
-  const fahrplan_sql = `SELECT 
-                          f.calendar_date,
-                          f.connection_departure_datetime,
-                          f.connection_arrival_datetime,
-                          f.connection_duration,
-                          f.connection_no_of_transfers,
-                          f.connection_returns_trips_back,
-                          f.return_departure_datetime,
-                          f.return_duration,
-                          f.return_no_of_transfers,
-                          f.return_arrival_datetime,
-                          f.totour_track_duration,
-                          f.fromtour_track_duration,
-                          f.connection_description_json,
-                          f.return_description_json,
-                          f.totour_track_key,
-                          f.fromtour_track_key
-                          FROM tour as t
-                          INNER JOIN fahrplan as f
-                          ON f.hashed_url=t.hashed_url
-                          WHERE t.id='${id}' 
-                          AND f.city_slug='${city}' 
-                          ORDER BY return_row ASC;`;
-  const fahrplan_result = await knex.raw(fahrplan_sql);
+  const selectedColumns = [
+    "f.calendar_date",
+    "f.connection_departure_datetime",
+    "f.connection_arrival_datetime",
+    "f.connection_duration",
+    "f.connection_no_of_transfers",
+    "f.connection_returns_trips_back",
+    "f.return_departure_datetime",
+    "f.return_duration",
+    "f.return_no_of_transfers",
+    "f.return_arrival_datetime",
+    "f.totour_track_duration",
+    "f.fromtour_track_duration",
+    "f.connection_description_json",
+    "f.return_description_json",
+    "f.totour_track_key",
+    "f.fromtour_track_key",
+  ];
 
-  if (!!fahrplan_result && !!fahrplan_result.rows) {
-    connections = fahrplan_result.rows.map((connection) => {
-      connection.connection_departure_datetime = momenttz(
-        connection.connection_departure_datetime,
-      )
-        .tz("Europe/Berlin")
-        .format();
-      connection.connection_arrival_datetime = momenttz(
-        connection.connection_arrival_datetime,
-      )
-        .tz("Europe/Berlin")
-        .format();
-      connection.return_departure_datetime = momenttz(
-        connection.return_departure_datetime,
-      )
-        .tz("Europe/Berlin")
-        .format();
-      return connection;
-    });
-  }
+  const connections_query: ConnectionsResult[] = await knex("tour as t")
+    .innerJoin("fahrplan as f", "f.hashed_url", "t.hashed_url")
+    .select(selectedColumns)
+    .where("t.id", id)
+    .andWhere("f.city_slug", city)
+    .orderBy("f.return_row", "ASC");
+
+  const connections = connections_query.map((connection) => {
+    connection.connection_departure_datetime = momenttz(
+      connection.connection_departure_datetime,
+    )
+      .tz("Europe/Berlin")
+      .format();
+    connection.connection_arrival_datetime = momenttz(
+      connection.connection_arrival_datetime,
+    )
+      .tz("Europe/Berlin")
+      .format();
+    connection.return_departure_datetime = momenttz(
+      connection.return_departure_datetime,
+    )
+      .tz("Europe/Berlin")
+      .format();
+    return connection;
+  });
 
   const today = moment().set("hour", 0).set("minute", 0).set("second", 0);
-  let end = moment().add(7, "day");
+  const end = moment().add(7, "day");
 
   let result = [];
 
@@ -677,16 +676,12 @@ router.get("/:id/connections-extended", async (req, res) => {
         moment(conn.calendar_date).format("DD.MM.YYYY") ==
         today.format("DD.MM.YYYY"),
     );
-    const duplicatesRemoved = [];
+    const duplicatesRemoved: ConnectionsResult[] = [];
 
     byWeekday.forEach((t) => {
-      let e = { ...t };
-      e.connection_duration_minutes = minutesFromMoment(
-        moment(e.connection_duration, "HH:mm:ss"),
-      );
-      e.return_duration_minutes = minutesFromMoment(
-        moment(e.return_duration, "HH:mm:ss"),
-      );
+      const e: ConnectionsResult & {} = { ...t };
+      e.connection_duration_minutes = minutesFromMoment(e.connection_duration);
+      e.return_duration_minutes = minutesFromMoment(e.return_duration);
 
       if (!duplicatesRemoved.find((tt) => compareConnections(e, tt))) {
         e.gpx_file = `${getHost(domain)}/public/gpx-track/totour/${last_two_characters(e.totour_track_key)}/${e.totour_track_key}.gpx`;
@@ -714,11 +709,15 @@ router.get("/:id/connections-extended", async (req, res) => {
   }
 
   res.status(200).json({ success: true, result: result });
-};
+});
 
-const getReturnConnectionsByConnection = (connections, domain, today) => {
-  let _connections = [];
-  let _duplicatesRemoved = [];
+const getReturnConnectionsByConnection = (
+  connections: ConnectionsResult[],
+  domain: string,
+  today: moment.Moment,
+) => {
+  let _connections: ConnectionsResult[] = [];
+  const _duplicatesRemoved: ConnectionsResult[] = [];
 
   _connections = connections.filter(
     (conn) =>
@@ -729,12 +728,8 @@ const getReturnConnectionsByConnection = (connections, domain, today) => {
   //filter and map
   _connections.forEach((t) => {
     let e = { ...t };
-    e.connection_duration_minutes = minutesFromMoment(
-      moment(e.connection_duration, "HH:mm:ss"),
-    );
-    e.return_duration_minutes = minutesFromMoment(
-      moment(e.return_duration, "HH:mm:ss"),
-    );
+    e.connection_duration_minutes = minutesFromMoment(e.connection_duration);
+    e.return_duration_minutes = minutesFromMoment(e.return_duration);
 
     if (!_duplicatesRemoved.find((tt) => compareConnectionReturns(e, tt))) {
       e.gpx_file = `${getHost(domain)}/public/gpx-track/fromtour/${last_two_characters(e.fromtour_track_key)}/${e.fromtour_track_key}.gpx`;

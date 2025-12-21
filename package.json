@@ -12,7 +12,7 @@
     "email": "test@zuugle.at"
   },
   "scripts": {
-    "start": "nodemon --trace-warnings --watch ./src --exec babel-node -- src/index.js",
+    "start": "nodemon --watch ./src --exec ts-node -- src/index.ts",
     "build": "babel src -d build",
     "test": "echo \"Error: no test specified\" && exit 1",
     "import-data": "node build/jobs/syncData.js",
@@ -40,6 +40,7 @@
   "devDependencies": {
     "@babel/cli": "^7.28.3",
     "@babel/core": "^7.28.5",
+    "@babel/node": "^7.28.0",
     "@babel/plugin-transform-runtime": "^7.28.5",
     "@babel/preset-env": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
@@ -47,15 +48,17 @@
     "@eslint/json": "^0.14.0",
     "@eslint/markdown": "^7.5.1",
     "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.5",
+    "@types/express": "^5.0.6",
     "@types/fs-extra": "^11.0.4",
+    "@types/node": "^24.10.1",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "nodemon": "^3.0.1",
+    "nodemon": "^3.1.11",
     "prettier": "^3.7.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.0"
   },

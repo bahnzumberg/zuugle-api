@@ -90,6 +90,43 @@ export interface Database {
     last_active: Date;
   };
 
+  fahrplan: {
+    id: number;
+    tour_provider: string;
+    hashed_url: string;
+    calendar_date: Date;
+    weekday: string | null;
+    date_any_connection: string;
+    city_slug: string;
+    city_name: string;
+    city_any_connection: string;
+    best_connection_duration: string | null;
+    connection_rank: number | null;
+    connection_departure_datetime: Date | null;
+    connection_duration: string | null;
+    connection_no_of_transfers: number | null;
+    connection_arrival_datetime: Date | null;
+    connection_returns_trips_back: number | null;
+    connection_returns_min_waiting_duration: string | null;
+    connection_returns_max_waiting_duration: string | null;
+    connection_returns_warning_level: number;
+    connection_returns_warning: string;
+    return_row: number | null;
+    return_waiting_duration: string | null;
+    return_departure_datetime: Date | null;
+    return_duration: string | null;
+    return_no_of_transfers: number | null;
+    return_arrival_datetime: Date | null;
+    totour_track_key: number | null;
+    totour_track_duration: string | null;
+    fromtour_track_key: number | null;
+    fromtour_track_duration: string | null;
+    connection_description_json: any | null;
+    connection_lastregular_arrival_datetime: Date | null;
+    return_description_json: any | null;
+    return_firstregular_departure_datetime: Date | null;
+  };
+
   kpi: {
     name: string;
     value: number;
