@@ -8,6 +8,7 @@ import moment from "moment";
 import { getHost, replaceFilePath, get_domain_country, isNumber } from "../utils/utils";
 import { minutesFromMoment } from "../utils/helper";
 import { convertDifficulty } from "../utils/dataConversion";
+import { escapeListForSql } from "../utils/security";
 
 import fs from "fs";
 import path from "path";
@@ -407,41 +408,41 @@ const listWrapper = async (req, res) => {
         }
 
         if (filterJSON["ranges"]) {
-            new_filter_where_ranges = `AND t.range IN ${JSON.stringify(filterJSON["ranges"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_ranges = `AND t.range IN ${escapeListForSql(filterJSON["ranges"])} `;
 
-            if (new_filter_where_ranges === "AND t.range IN () ;") {
+            if (new_filter_where_ranges.trim() === "AND t.range IN ()") {
                 new_filter_where_ranges = ``;
             }
         }
 
         if (filterJSON["types"]) {
-            new_filter_where_types = `AND t.type IN ${JSON.stringify(filterJSON["types"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_types = `AND t.type IN ${escapeListForSql(filterJSON["types"])} `;
 
-            if (new_filter_where_types === "AND t.type IN () ;") {
+            if (new_filter_where_types.trim() === "AND t.type IN ()") {
                 new_filter_where_types = ``;
             }
         }
 
         if (filterJSON["languages"]) {
-            new_filter_where_languages = `AND t.text_lang IN ${JSON.stringify(filterJSON["languages"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_languages = `AND t.text_lang IN ${escapeListForSql(filterJSON["languages"])} `;
 
-            if (new_filter_where_languages === "AND t.text_lang IN () ;") {
+            if (new_filter_where_languages.trim() === "AND t.text_lang IN ()") {
                 new_filter_where_languages = ``;
             }
         }
 
         if (filterJSON["difficulties"]) {
-            new_filter_where_difficulties = `AND t.difficulty IN ${JSON.stringify(filterJSON["difficulties"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_difficulties = `AND t.difficulty IN ${escapeListForSql(filterJSON["difficulties"])} `;
 
-            if (new_filter_where_difficulties === "AND t.difficulty IN () ;") {
+            if (new_filter_where_difficulties.trim() === "AND t.difficulty IN ()") {
                 new_filter_where_difficulties = ``;
             }
         }
 
         if (filterJSON["providers"]) {
-            new_filter_where_providers = `AND t.provider IN ${JSON.stringify(filterJSON["providers"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_providers = `AND t.provider IN ${escapeListForSql(filterJSON["providers"])} `;
 
-            if (new_filter_where_providers === "AND t.provider IN () ;") {
+            if (new_filter_where_providers.trim() === "AND t.provider IN ()") {
                 new_filter_where_providers = ``;
             }
         }
@@ -513,7 +514,7 @@ const listWrapper = async (req, res) => {
         if (hashed_urls === null) {
             new_filter_where_poi = ``;
         } else if (hashed_urls.length !== 0) {
-            new_filter_where_poi = `AND t.hashed_url IN ${JSON.stringify(hashed_urls).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_poi = `AND t.hashed_url IN ${escapeListForSql(hashed_urls)} `;
         } else {
             new_filter_where_poi = `AND t.hashed_url IN ('null') ;`;
         }
