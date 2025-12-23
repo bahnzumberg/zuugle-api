@@ -299,6 +299,7 @@ const listWrapper = async (req, res) => {
     let new_search_where_searchterm = ``;
     let new_search_order_searchterm = ``;
     let new_search_where_city = ``;
+    let bindings = [];
     let new_search_where_country = ``;
     let new_search_where_state = ``;
     let new_search_where_range = ``;
@@ -450,7 +451,8 @@ const listWrapper = async (req, res) => {
     const tld = get_domain_country(domain).toUpperCase();
 
     if (!!city && city.length > 0) {
-        new_search_where_city = `AND c2t.city_slug='${city}' `;
+        new_search_where_city = `AND c2t.city_slug=? `;
+        bindings.push(city);
     } else {
         new_search_where_city = `AND c2t.stop_selector='y' `;
     }
@@ -556,11 +558,8 @@ const listWrapper = async (req, res) => {
                                     ${new_filter_where_poi}`;
 
     let temp_table = "";
-    if (city) {
-        temp_table = `temp_` + tld + city.replace(/-/g, "_") + `_` + Date.now();
-    } else {
-        temp_table = `temp_` + tld + `_` + Date.now();
-    }
+    const randomSuffix = crypto.randomBytes(8).toString("hex");
+    temp_table = `temp_${tld}_${randomSuffix}`;
 
     const temporary_sql = `CREATE TEMP TABLE ${temp_table} AS
                         SELECT 
@@ -600,7 +599,7 @@ const listWrapper = async (req, res) => {
                         ON c2t.tour_id=t.id 
                         WHERE c2t.reachable_from_country='${tld}' 
                         ${global_where_condition};`;
-    await knex.raw(temporary_sql);
+    await knex.raw(temporary_sql, bindings);
     // console.log("temporary_sql = ", temporary_sql);
 
     try {
@@ -809,7 +808,7 @@ const listWrapper = async (req, res) => {
                             ORDER BY SUM(1.0/(c2t.min_connection_no_of_transfers+1)) DESC, t.range_slug ASC
                             LIMIT 10`;
 
-        range_result = await knex.raw(range_sql);
+        range_result = await knex.raw(range_sql, bindings);
         // console.log("range_sql: ", range_sql)
 
         if (!!range_result && !!range_result.rows) {
@@ -857,12 +856,14 @@ const filterWrapper = async (req, res) => {
     let text = [];
     let ranges = [];
     let providers = [];
+    let bindings = [];
     let tld = get_domain_country(domain).toUpperCase();
     let where_city = ` AND c2t.stop_selector='y' `;
     let new_search_where_searchterm = "";
 
     if (!!city && city.length > 0) {
-        where_city = ` AND c2t.city_slug='${city}' `;
+        where_city = ` AND c2t.city_slug=? `;
+        bindings.push(city);
     }
 
     if (!!search && !!search.length > 0) {
@@ -882,11 +883,8 @@ const filterWrapper = async (req, res) => {
     }
 
     let temp_table = "";
-    if (city) {
-        temp_table = `temp_` + tld + city.replace(/-/g, "_") + `_` + Date.now();
-    } else {
-        temp_table = `temp_` + tld + `_` + Date.now();
-    }
+    const randomSuffix = crypto.randomBytes(8).toString("hex");
+    temp_table = `temp_${tld}_${randomSuffix}`;
     // console.log("temp_table: ", temp_table)
 
     let temporary_sql = `CREATE TEMP TABLE ${temp_table} AS
@@ -922,7 +920,7 @@ const filterWrapper = async (req, res) => {
                     t.number_of_days,
                     t.season,
                     t.traverse;`;
-    await knex.raw(temporary_sql);
+    await knex.raw(temporary_sql, bindings);
 
     await knex.raw(`CREATE INDEX idx_type ON ${temp_table} (type);`);
     await knex.raw(`CREATE INDEX idx_lang ON ${temp_table} (text_lang);`);
