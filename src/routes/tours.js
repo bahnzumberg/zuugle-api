@@ -449,8 +449,12 @@ const listWrapper = async (req, res) => {
 
     const tld = get_domain_country(domain).toUpperCase();
 
+    const temp_bindings = [tld];
+    const search_bindings = [currLanguage];
+
     if (!!city && city.length > 0) {
-        new_search_where_city = `AND c2t.city_slug='${city}' `;
+        new_search_where_city = `AND c2t.city_slug=? `;
+        temp_bindings.push(city);
     } else {
         new_search_where_city = `AND c2t.stop_selector='y' `;
     }
@@ -473,38 +477,50 @@ const listWrapper = async (req, res) => {
 
         if (search.trim().split(/\s+/).length === 1) {
             // search consists of a single word
-            new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery('${postgresql_language_code}', '${search}') `;
-            new_search_order_searchterm = `COALESCE(ts_rank(COALESCE(t.search_column, ''), COALESCE(websearch_to_tsquery('${postgresql_language_code}', '${search}'), '')), 0) DESC, `;
+            new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery(?, ?) `;
+            temp_bindings.push(postgresql_language_code, search);
+
+            new_search_order_searchterm = `COALESCE(ts_rank(COALESCE(t.search_column, ''), COALESCE(websearch_to_tsquery(?, ?), '')), 0) DESC, `;
+            search_bindings.push(postgresql_language_code, search);
             // console.log("Websearch")
         } else {
-            new_search_where_searchterm = `AND ai_search_column <-> (SELECT get_embedding('query: ${search.toLowerCase()}')) < 0.6 `;
-            new_search_order_searchterm = `ai_search_column <-> (SELECT get_embedding('query: ${search}')) ASC, `;
+            new_search_where_searchterm = `AND ai_search_column <-> (SELECT get_embedding(?)) < 0.6 `;
+            temp_bindings.push(`query: ${search.toLowerCase()}`);
+
+            new_search_order_searchterm = `ai_search_column <-> (SELECT get_embedding(?)) ASC, `;
+            search_bindings.push(`query: ${search}`);
             // console.log("AI search")
         }
     }
 
     if (!!range && range.length > 0) {
-        new_search_where_range = `AND range='${range}' `;
+        new_search_where_range = `AND range=? `;
+        temp_bindings.push(range);
     }
 
     if (!!state && state.length > 0) {
-        new_search_where_state = `AND state='${state}' `;
+        new_search_where_state = `AND state=? `;
+        temp_bindings.push(state);
     }
 
     if (!!country && country.length > 0) {
-        new_search_where_country = `AND country='${country}' `;
+        new_search_where_country = `AND country=? `;
+        temp_bindings.push(country);
     }
 
     if (!!type && type.length > 0) {
-        new_search_where_type = `AND type='${type}' `;
+        new_search_where_type = `AND type=? `;
+        temp_bindings.push(type);
     }
 
     if (!!provider && provider.length > 0) {
-        new_search_where_provider = `AND t.provider='${provider}' `;
+        new_search_where_provider = `AND t.provider=? `;
+        temp_bindings.push(provider);
     }
 
     if (!!language && language.length > 0) {
-        new_search_where_language = `AND text_lang='${language}'  `;
+        new_search_where_language = `AND text_lang=?  `;
+        temp_bindings.push(language);
     }
 
     if (parsedPoi && parsedPoi.lat && parsedPoi.lng) {
@@ -527,7 +543,8 @@ const listWrapper = async (req, res) => {
         const latSW = coordinatesSouthWest.lat.toString();
         const lngSW = coordinatesSouthWest.lng.toString();
 
-        new_search_where_map = `AND c2t.connection_arrival_stop_lon between (${lngSW})::numeric and (${lngNE})::numeric AND c2t.connection_arrival_stop_lat between (${latSW})::numeric AND (${latNE})::numeric `;
+        new_search_where_map = `AND c2t.connection_arrival_stop_lon between ?::numeric and ?::numeric AND c2t.connection_arrival_stop_lat between ?::numeric AND ?::numeric `;
+        temp_bindings.push(lngSW, lngNE, latSW, latNE);
     }
 
     const global_where_condition = `${new_search_where_city}
@@ -598,9 +615,9 @@ const listWrapper = async (req, res) => {
                         FROM city2tour AS c2t 
                         INNER JOIN tour AS t 
                         ON c2t.tour_id=t.id 
-                        WHERE c2t.reachable_from_country='${tld}' 
+                        WHERE c2t.reachable_from_country=?
                         ${global_where_condition};`;
-    await knex.raw(temporary_sql);
+    await knex.raw(temporary_sql, temp_bindings);
     // console.log("temporary_sql = ", temporary_sql);
 
     try {
@@ -641,7 +658,7 @@ const listWrapper = async (req, res) => {
                         t.month_order
                         FROM ${temp_table} AS t 
                         ORDER BY 
-                        CASE WHEN t.text_lang='${currLanguage}' THEN 1 ELSE 0 END DESC,  
+                        CASE WHEN t.text_lang=? THEN 1 ELSE 0 END DESC,
                         ${new_search_order_searchterm}
                         t.month_order ASC, 
                         t.number_of_days ASC,
@@ -659,7 +676,7 @@ const listWrapper = async (req, res) => {
     let result_sql = null;
     let result = [];
     try {
-        result_sql = await knex.raw(new_search_sql); // fire the DB call here
+        result_sql = await knex.raw(new_search_sql, search_bindings); // fire the DB call here
         if (result_sql && result_sql.rows) {
             result = result_sql.rows;
         } else {
