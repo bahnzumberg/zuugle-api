@@ -51,3 +51,13 @@ export const replaceFilePath = (filePath) => {
 export const getAllLanguages = () => {
     return ["en", "de", "it", "fr", "sl"];
 };
+
+export function generateInClause(prefix, arr, bindings) {
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return "IN ('')"; // Handle empty or invalid
+    const clauses = arr.map((val, index) => {
+        const key = `${prefix}_${index}`;
+        bindings[key] = val;
+        return `:${key}`;
+    });
+    return `IN (${clauses.join(',')})`;
+}

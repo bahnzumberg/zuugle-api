@@ -5,7 +5,7 @@ import cacheService from "../services/cache.js";
 import crypto from "crypto";
 import { mergeGpxFilesToOne, last_two_characters, hashedUrlsFromPoi } from "../utils/gpx/gpxUtils";
 import moment from "moment";
-import { getHost, replaceFilePath, get_domain_country, isNumber } from "../utils/utils";
+import { getHost, replaceFilePath, get_domain_country, isNumber, generateInClause } from "../utils/utils";
 import { minutesFromMoment } from "../utils/helper";
 import { convertDifficulty } from "../utils/dataConversion";
 
@@ -290,11 +290,10 @@ const listWrapper = async (req, res) => {
 
     const parsedPoi = poi ? JSON.parse(poi) : null;
 
-    // variables initialized depending on availability of 'map' in the request
-    //const map = req && req.query && req.query.map === "true"; // add optional chaining
-    //let useLimit = !!!map;  // initialise with true
-    //let addDetails = !!!map; // initialise with true
     let addDetails = true;
+
+    // Use named bindings instead of string interpolation
+    const bindings = {};
 
     let new_search_where_searchterm = ``;
     let new_search_order_searchterm = ``;
@@ -369,88 +368,93 @@ const listWrapper = async (req, res) => {
         }
 
         if (isNumber(filterJSON["minAscent"]) && filterJSON["minAscent"] >= 0) {
-            new_filter_where_Ascent += `AND t.ascent >= ${filterJSON["minAscent"]} `;
+            bindings.minAscent = filterJSON["minAscent"];
+            new_filter_where_Ascent += `AND t.ascent >= :minAscent `;
         }
 
         if (isNumber(filterJSON["maxAscent"]) && filterJSON["maxAscent"] >= 0) {
-            new_filter_where_Ascent += `AND t.ascent <= ${filterJSON["maxAscent"]} `;
+            bindings.maxAscent = filterJSON["maxAscent"];
+            new_filter_where_Ascent += `AND t.ascent <= :maxAscent `;
         }
 
         if (isNumber(filterJSON["minDescent"]) && filterJSON["minDescent"] >= 0) {
-            new_filter_where_Descent += `AND t.descent >= ${filterJSON["minDescent"]} `;
+            bindings.minDescent = filterJSON["minDescent"];
+            new_filter_where_Descent += `AND t.descent >= :minDescent `;
         }
 
         if (isNumber(filterJSON["maxDescent"]) && filterJSON["maxDescent"] >= 0) {
-            new_filter_where_Descent += `AND t.descent <= ${filterJSON["maxDescent"]} `;
+            bindings.maxDescent = filterJSON["maxDescent"];
+            new_filter_where_Descent += `AND t.descent <= :maxDescent `;
         }
 
         if (
             isNumber(filterJSON["minTransportDuration"]) &&
             filterJSON["minTransportDuration"] >= 0
         ) {
-            new_filter_where_TransportDuration += `AND c2t.min_connection_duration >= ${filterJSON["minTransportDuration"] * 60} `;
+            bindings.minTransportDuration = filterJSON["minTransportDuration"] * 60;
+            new_filter_where_TransportDuration += `AND c2t.min_connection_duration >= :minTransportDuration `;
         }
 
         if (
             isNumber(filterJSON["maxTransportDuration"]) &&
             filterJSON["maxTransportDuration"] >= 0
         ) {
-            new_filter_where_TransportDuration += `AND c2t.min_connection_duration <= ${filterJSON["maxTransportDuration"] * 60} `;
+            bindings.maxTransportDuration = filterJSON["maxTransportDuration"] * 60;
+            new_filter_where_TransportDuration += `AND c2t.min_connection_duration <= :maxTransportDuration `;
         }
 
         if (isNumber(filterJSON["minDistance"]) && filterJSON["minDistance"] > 0) {
-            new_filter_where_Distance += `AND t.distance >= ${filterJSON["minDistance"]} `;
+            bindings.minDistance = filterJSON["minDistance"];
+            new_filter_where_Distance += `AND t.distance >= :minDistance `;
         }
 
         if (isNumber(filterJSON["maxDistance"]) && filterJSON["maxDistance"] > 0) {
-            new_filter_where_Distance += `AND t.distance <= ${filterJSON["maxDistance"]} `;
+            bindings.maxDistance = filterJSON["maxDistance"];
+            new_filter_where_Distance += `AND t.distance <= :maxDistance `;
         }
 
         if (filterJSON["ranges"]) {
-            new_filter_where_ranges = `AND t.range IN ${JSON.stringify(filterJSON["ranges"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_ranges === "AND t.range IN () ;") {
-                new_filter_where_ranges = ``;
+            const rangeClause = generateInClause('filter_ranges', filterJSON["ranges"], bindings);
+            if (rangeClause !== "IN ('')") {
+                new_filter_where_ranges = `AND t.range ${rangeClause} `;
             }
         }
 
         if (filterJSON["types"]) {
-            new_filter_where_types = `AND t.type IN ${JSON.stringify(filterJSON["types"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_types === "AND t.type IN () ;") {
-                new_filter_where_types = ``;
+            const typeClause = generateInClause('filter_types', filterJSON["types"], bindings);
+            if (typeClause !== "IN ('')") {
+                new_filter_where_types = `AND t.type ${typeClause} `;
             }
         }
 
         if (filterJSON["languages"]) {
-            new_filter_where_languages = `AND t.text_lang IN ${JSON.stringify(filterJSON["languages"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_languages === "AND t.text_lang IN () ;") {
-                new_filter_where_languages = ``;
+            const langClause = generateInClause('filter_languages', filterJSON["languages"], bindings);
+            if (langClause !== "IN ('')") {
+                new_filter_where_languages = `AND t.text_lang ${langClause} `;
             }
         }
 
         if (filterJSON["difficulties"]) {
-            new_filter_where_difficulties = `AND t.difficulty IN ${JSON.stringify(filterJSON["difficulties"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_difficulties === "AND t.difficulty IN () ;") {
-                new_filter_where_difficulties = ``;
+            const diffClause = generateInClause('filter_difficulties', filterJSON["difficulties"], bindings);
+            if (diffClause !== "IN ('')") {
+                new_filter_where_difficulties = `AND t.difficulty ${diffClause} `;
             }
         }
 
         if (filterJSON["providers"]) {
-            new_filter_where_providers = `AND t.provider IN ${JSON.stringify(filterJSON["providers"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_providers === "AND t.provider IN () ;") {
-                new_filter_where_providers = ``;
+            const provClause = generateInClause('filter_providers', filterJSON["providers"], bindings);
+            if (provClause !== "IN ('')") {
+                new_filter_where_providers = `AND t.provider ${provClause} `;
             }
         }
     }
 
     const tld = get_domain_country(domain).toUpperCase();
+    bindings.tld = tld;
 
     if (!!city && city.length > 0) {
-        new_search_where_city = `AND c2t.city_slug='${city}' `;
+        bindings.city = city;
+        new_search_where_city = `AND c2t.city_slug=:city `;
     } else {
         new_search_where_city = `AND c2t.stop_selector='y' `;
     }
@@ -468,43 +472,47 @@ const listWrapper = async (req, res) => {
             postgresql_language_code = "english";
         }
 
-        // If there is more than one search term, the AI is superior,
-        // is there only a single word, the standard websearch of PostgreSQL ist better.
+        bindings.search = search;
+        bindings.search_lower = search.toLowerCase();
+        bindings.pg_lang = postgresql_language_code;
 
         if (search.trim().split(/\s+/).length === 1) {
-            // search consists of a single word
-            new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery('${postgresql_language_code}', '${search}') `;
-            new_search_order_searchterm = `COALESCE(ts_rank(COALESCE(t.search_column, ''), COALESCE(websearch_to_tsquery('${postgresql_language_code}', '${search}'), '')), 0) DESC, `;
-            // console.log("Websearch")
+            new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery(:pg_lang, :search) `;
+            new_search_order_searchterm = `COALESCE(ts_rank(COALESCE(t.search_column, ''), COALESCE(websearch_to_tsquery(:pg_lang, :search), '')), 0) DESC, `;
         } else {
-            new_search_where_searchterm = `AND ai_search_column <-> (SELECT get_embedding('query: ${search.toLowerCase()}')) < 0.6 `;
-            new_search_order_searchterm = `ai_search_column <-> (SELECT get_embedding('query: ${search}')) ASC, `;
-            // console.log("AI search")
+            new_search_where_searchterm = `AND ai_search_column <-> (SELECT get_embedding('query: ' || :search_lower)) < 0.6 `;
+            new_search_order_searchterm = `ai_search_column <-> (SELECT get_embedding('query: ' || :search)) ASC, `;
         }
     }
 
     if (!!range && range.length > 0) {
-        new_search_where_range = `AND range='${range}' `;
+        bindings.range = range;
+        new_search_where_range = `AND range=:range `;
     }
 
     if (!!state && state.length > 0) {
-        new_search_where_state = `AND state='${state}' `;
+        bindings.state = state;
+        new_search_where_state = `AND state=:state `;
     }
 
     if (!!country && country.length > 0) {
-        new_search_where_country = `AND country='${country}' `;
+        bindings.country = country;
+        new_search_where_country = `AND country=:country `;
     }
 
     if (!!type && type.length > 0) {
-        new_search_where_type = `AND type='${type}' `;
+        bindings.type = type;
+        new_search_where_type = `AND type=:type `;
     }
 
     if (!!provider && provider.length > 0) {
-        new_search_where_provider = `AND t.provider='${provider}' `;
+        bindings.provider = provider;
+        new_search_where_provider = `AND t.provider=:provider `;
     }
 
     if (!!language && language.length > 0) {
-        new_search_where_language = `AND text_lang='${language}'  `;
+        bindings.language = language;
+        new_search_where_language = `AND text_lang=:language  `;
     }
 
     if (parsedPoi && parsedPoi.lat && parsedPoi.lng) {
@@ -513,21 +521,20 @@ const listWrapper = async (req, res) => {
         if (hashed_urls === null) {
             new_filter_where_poi = ``;
         } else if (hashed_urls.length !== 0) {
-            new_filter_where_poi = `AND t.hashed_url IN ${JSON.stringify(hashed_urls).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            const poiClause = generateInClause('filter_poi', hashed_urls, bindings);
+            new_filter_where_poi = `AND t.hashed_url ${poiClause} `;
         } else {
             new_filter_where_poi = `AND t.hashed_url IN ('null') ;`;
         }
     }
 
-    //filters the tours by coordinates
-    //FE sends coordinate bounds which the user sees on the map --> tours that are within these coordinates are returned
     if (!!coordinatesNorthEast && !!coordinatesSouthWest) {
-        const latNE = coordinatesNorthEast.lat.toString();
-        const lngNE = coordinatesNorthEast.lng.toString();
-        const latSW = coordinatesSouthWest.lat.toString();
-        const lngSW = coordinatesSouthWest.lng.toString();
+        bindings.latNE = coordinatesNorthEast.lat.toString();
+        bindings.lngNE = coordinatesNorthEast.lng.toString();
+        bindings.latSW = coordinatesSouthWest.lat.toString();
+        bindings.lngSW = coordinatesSouthWest.lng.toString();
 
-        new_search_where_map = `AND c2t.connection_arrival_stop_lon between (${lngSW})::numeric and (${lngNE})::numeric AND c2t.connection_arrival_stop_lat between (${latSW})::numeric AND (${latNE})::numeric `;
+        new_search_where_map = `AND c2t.connection_arrival_stop_lon between (:lngSW)::numeric and (:lngNE)::numeric AND c2t.connection_arrival_stop_lat between (:latSW)::numeric AND (:latNE)::numeric `;
     }
 
     const global_where_condition = `${new_search_where_city}
@@ -598,16 +605,23 @@ const listWrapper = async (req, res) => {
                         FROM city2tour AS c2t 
                         INNER JOIN tour AS t 
                         ON c2t.tour_id=t.id 
-                        WHERE c2t.reachable_from_country='${tld}' 
+                        WHERE c2t.reachable_from_country=:tld
                         ${global_where_condition};`;
-    await knex.raw(temporary_sql);
-    // console.log("temporary_sql = ", temporary_sql);
+    await knex.raw(temporary_sql, bindings);
 
     try {
         await knex.raw(`CREATE INDEX idx_id ON ${temp_table} (id);`);
     } catch (error) {
         console.log("Error creating index idx_id:", error);
     }
+
+    bindings.currLanguage = currLanguage;
+
+    // Note: Bindings can be reused. We need to pass the same bindings object (or a subset)
+    // to the next query if we use named parameters there too.
+    // However, new_search_sql uses ${new_search_order_searchterm} which we already parameterized partially.
+    // But `new_search_order_searchterm` contains `:search` and `:pg_lang`.
+    // So we need to pass `bindings` to `knex.raw(new_search_sql, bindings)`.
 
     const new_search_sql = `SELECT 
                         t.id, 
@@ -641,7 +655,7 @@ const listWrapper = async (req, res) => {
                         t.month_order
                         FROM ${temp_table} AS t 
                         ORDER BY 
-                        CASE WHEN t.text_lang='${currLanguage}' THEN 1 ELSE 0 END DESC,  
+                        CASE WHEN t.text_lang=:currLanguage THEN 1 ELSE 0 END DESC,
                         ${new_search_order_searchterm}
                         t.month_order ASC, 
                         t.number_of_days ASC,
@@ -654,12 +668,10 @@ const listWrapper = async (req, res) => {
                         MOD(t.id, CAST(EXTRACT(DAY FROM CURRENT_DATE) AS INTEGER)) ASC
                         LIMIT 9 OFFSET ${9 * (page - 1)};`;
 
-    // console.log("new_search_sql: ", new_search_sql)
-
     let result_sql = null;
     let result = [];
     try {
-        result_sql = await knex.raw(new_search_sql); // fire the DB call here
+        result_sql = await knex.raw(new_search_sql, bindings);
         if (result_sql && result_sql.rows) {
             result = result_sql.rows;
         } else {
@@ -677,7 +689,6 @@ const listWrapper = async (req, res) => {
         let count_query = knex.raw(`SELECT COUNT(*) AS row_count FROM ${temp_table};`);
         let sql_count_call = await count_query;
         sql_count = parseInt(sql_count_call.rows[0].row_count, 10);
-        // console.log("count_sql: ", count_sql)
     } catch (error) {
         console.log("Error retrieving count:", error);
     }
@@ -685,12 +696,11 @@ const listWrapper = async (req, res) => {
     // ****************************************************************
     // CALLING DATABASE FOR MARKERS
     // ****************************************************************
-    let markers_result = ""; //markers-related : to return map markers positions from database
-    let markers_array = []; // markers-related : to be filled by either cases(with or without "search included")
+    let markers_result = "";
+    let markers_array = [];
 
     if (map) {
         try {
-            // markers-related / searchIncluded
             const markers_sql = `SELECT 
                             t.id, 
                             t.connection_arrival_stop_lat as lat,
@@ -698,11 +708,10 @@ const listWrapper = async (req, res) => {
                             FROM ${temp_table} AS t 
                             WHERE t.connection_arrival_stop_lat IS NOT NULL 
                             AND t.connection_arrival_stop_lon IS NOT NULL;`;
-            markers_result = await knex.raw(markers_sql); // fire the DB call here
+            markers_result = await knex.raw(markers_sql);
 
-            // markers-related
             if (!!markers_result && !!markers_result.rows) {
-                markers_array = markers_result.rows; // This is to be passed to the response below
+                markers_array = markers_result.rows;
             } else {
                 console.log("markers_result is null or undefined");
             }
@@ -717,8 +726,6 @@ const listWrapper = async (req, res) => {
         console.log("Drop temp table failed: ", err);
     }
 
-    //logsearchphrase
-    //This code first logs the search phrase and the number of results in a database table called logsearchphrase if a search was performed. It replaces any single quotes in the search parameter with double quotes, which is necessary to insert the search parameter into the SQL statement.
     try {
         let searchparam = "";
 
@@ -728,7 +735,6 @@ const listWrapper = async (req, res) => {
             search.length > 0 &&
             req.query.city !== undefined
         ) {
-            // Entfernt führende und nachfolgende Leerzeichen
             searchparam = search.toLowerCase().trim();
 
             if (!!sql_count && sql_count > 1) {
@@ -745,18 +751,11 @@ const listWrapper = async (req, res) => {
         console.error("error inserting into logsearchphrase: ", e);
     }
 
-    // preparing tour entries
-    // this code maps over the query result and applies the function prepareTourEntry to each entry. The prepareTourEntry
-    // function returns a modified version of the entry that includes additional data and formatting.
-    // The function also sets the 'is_map_entry' property of the entry to true if map is truthy.
-    // The function uses Promise.all to wait for all promises returned by 'prepareTourEntry' to resolve before
-    // returning the final result array.
     if (result && Array.isArray(result)) {
         await Promise.all(
             result.map(
                 (entry) =>
                     new Promise((resolve) => {
-                        // The function prepareTourEntry will remove the column hashed_url, so it is not send to frontend
                         prepareTourEntry(entry, city, domain, addDetails).then((updatedEntry) =>
                             resolve(updatedEntry),
                         );
@@ -766,13 +765,6 @@ const listWrapper = async (req, res) => {
     }
 
     /** add ranges to result */
-    // This code prepares the response to a HTTP request.
-    // The ranges array is populated with data about the tours ranges. The showRanges variable is a
-    // boolean that is passed in the request to determine whether to return the ranges or not.
-    // If showRanges is true, then the code queries the database to get a list of the distinct ranges
-    // and their image urls. It then loops through the results to create an array of range objects
-    // containing the range name and the corresponding image URL. The code then queries the database
-    // to get all states of each range and adds them to the states array of each range object.
     let ranges = [];
     let range_result = undefined;
 
@@ -800,7 +792,7 @@ const listWrapper = async (req, res) => {
                             FROM city2tour AS c2t 
                             INNER JOIN tour AS t 
                             ON c2t.tour_id=t.id 
-                            WHERE c2t.reachable_from_country='${tld}'
+                            WHERE c2t.reachable_from_country=:tld
                             ${new_search_where_city}
                             AND ${shortMonth}='true'
                             AND t.range_slug IS NOT NULL
@@ -809,20 +801,13 @@ const listWrapper = async (req, res) => {
                             ORDER BY SUM(1.0/(c2t.min_connection_no_of_transfers+1)) DESC, t.range_slug ASC
                             LIMIT 10`;
 
-        range_result = await knex.raw(range_sql);
-        // console.log("range_sql: ", range_sql)
+        // Reuse bindings (contains tld, city, etc.)
+        range_result = await knex.raw(range_sql, bindings);
 
         if (!!range_result && !!range_result.rows) {
             ranges = range_result.rows;
         }
     }
-
-    //describe:
-    // The result array contains the list of tours returned from the database after executing the main query.
-    // This array is already looped through to transform each tour entry with additional data and metadata
-    // using the prepareTourEntry function. Finally, a JSON response is returned with success set to true,
-    // the tours array, the total count of tours returned by the main query, the current page, and the
-    // ranges array (if showRanges is true).
 
     const responseData = {
         success: true,
@@ -848,9 +833,9 @@ const filterWrapper = async (req, res) => {
     const search = req.query.search;
     const city = req.query.city;
     const domain = req.query.domain;
-    const currLanguage = req.query.currLanguage; // gets the menu language (selected by visitor)
+    const currLanguage = req.query.currLanguage;
 
-    // Where Condition is only depending on country, city and search term(s)
+    const bindings = {};
 
     let kpis = [];
     let types = [];
@@ -858,11 +843,14 @@ const filterWrapper = async (req, res) => {
     let ranges = [];
     let providers = [];
     let tld = get_domain_country(domain).toUpperCase();
+    bindings.tld = tld;
+
     let where_city = ` AND c2t.stop_selector='y' `;
     let new_search_where_searchterm = "";
 
     if (!!city && city.length > 0) {
-        where_city = ` AND c2t.city_slug='${city}' `;
+        bindings.city = city;
+        where_city = ` AND c2t.city_slug=:city `;
     }
 
     if (!!search && !!search.length > 0) {
@@ -878,7 +866,9 @@ const filterWrapper = async (req, res) => {
             postgresql_language_code = "english";
         }
 
-        new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery('${postgresql_language_code}', '${search}') `;
+        bindings.pg_lang = postgresql_language_code;
+        bindings.search = search;
+        new_search_where_searchterm = `AND t.search_column @@ websearch_to_tsquery(:pg_lang, :search) `;
     }
 
     let temp_table = "";
@@ -887,7 +877,6 @@ const filterWrapper = async (req, res) => {
     } else {
         temp_table = `temp_` + tld + `_` + Date.now();
     }
-    // console.log("temp_table: ", temp_table)
 
     let temporary_sql = `CREATE TEMP TABLE ${temp_table} AS
                     SELECT 
@@ -910,7 +899,7 @@ const filterWrapper = async (req, res) => {
                     FROM city2tour AS c2t 
                     INNER JOIN tour AS t 
                     ON c2t.tour_id=t.id                          
-                    WHERE c2t.reachable_from_country='${tld}'  
+                    WHERE c2t.reachable_from_country=:tld
                     ${where_city}
                     ${new_search_where_searchterm}
                     GROUP BY
@@ -922,7 +911,7 @@ const filterWrapper = async (req, res) => {
                     t.number_of_days,
                     t.season,
                     t.traverse;`;
-    await knex.raw(temporary_sql);
+    await knex.raw(temporary_sql, bindings);
 
     await knex.raw(`CREATE INDEX idx_type ON ${temp_table} (type);`);
     await knex.raw(`CREATE INDEX idx_lang ON ${temp_table} (text_lang);`);
@@ -944,7 +933,6 @@ const filterWrapper = async (req, res) => {
                 MIN(t.min_connection_duration/60) AS minTransportDuration,
                 MAX(t.max_connection_duration/60) AS maxTransportDuration
                 FROM ${temp_table} t;`;
-    //console.log("kpi_sql: ", kpi_sql)
 
     let kpi_result = await knex.raw(kpi_sql);
     if (!!kpi_result && !!kpi_result.rows) {
@@ -991,7 +979,6 @@ const filterWrapper = async (req, res) => {
     if (!!types_result && !!types_result.rows) {
         types = types_result.rows;
     }
-    // console.log("types / Sportarten: ", types)
 
     let text_sql = `SELECT 
                     t.text_lang
@@ -1003,7 +990,6 @@ const filterWrapper = async (req, res) => {
     if (!!text_result && !!text_result.rows) {
         text = text_result.rows;
     }
-    // console.log("text_lang: ", text)
 
     let range_sql = `SELECT 
                     t.range
@@ -1016,7 +1002,6 @@ const filterWrapper = async (req, res) => {
     if (!!range_result && !!range_result.rows) {
         ranges = range_result.rows;
     }
-    // console.log("ranges: ", ranges)
 
     let provider_sql = `SELECT 
                     t.provider,
@@ -1051,7 +1036,6 @@ const filterWrapper = async (req, res) => {
         maxTransportDuration: _maxTransportDuration,
         languages: text.map((textObj) => textObj.text_lang),
     };
-    // console.log("filterresult: ", filterresult)
 
     try {
         await knex.raw(`DROP TABLE ${temp_table};`);
