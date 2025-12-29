@@ -51,3 +51,15 @@ export const replaceFilePath = (filePath) => {
 export const getAllLanguages = () => {
     return ["en", "de", "it", "fr", "sl"];
 };
+
+export const generateInClause = (prefix, values, bindings) => {
+    if (!values || !Array.isArray(values) || values.length === 0) {
+        return "('')"; // Return empty string match which is safe and returns nothing
+    }
+    const placeholders = values.map((val, i) => {
+        const key = `${prefix}_${i}`;
+        bindings[key] = val;
+        return `:${key}`;
+    });
+    return `(${placeholders.join(", ")})`;
+};

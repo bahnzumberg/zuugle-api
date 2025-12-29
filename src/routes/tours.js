@@ -5,7 +5,13 @@ import cacheService from "../services/cache.js";
 import crypto from "crypto";
 import { mergeGpxFilesToOne, last_two_characters, hashedUrlsFromPoi } from "../utils/gpx/gpxUtils";
 import moment from "moment";
-import { getHost, replaceFilePath, get_domain_country, isNumber } from "../utils/utils";
+import {
+    getHost,
+    replaceFilePath,
+    get_domain_country,
+    isNumber,
+    generateInClause,
+} from "../utils/utils";
 import { minutesFromMoment } from "../utils/helper";
 import { convertDifficulty } from "../utils/dataConversion";
 
@@ -296,6 +302,8 @@ const listWrapper = async (req, res) => {
     //let addDetails = !!!map; // initialise with true
     let addDetails = true;
 
+    let queryBindings = {};
+
     let new_search_where_searchterm = ``;
     let new_search_order_searchterm = ``;
     let new_search_where_city = ``;
@@ -406,44 +414,24 @@ const listWrapper = async (req, res) => {
             new_filter_where_Distance += `AND t.distance <= ${filterJSON["maxDistance"]} `;
         }
 
-        if (filterJSON["ranges"]) {
-            new_filter_where_ranges = `AND t.range IN ${JSON.stringify(filterJSON["ranges"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_ranges === "AND t.range IN () ;") {
-                new_filter_where_ranges = ``;
-            }
+        if (filterJSON["ranges"] && filterJSON["ranges"].length > 0) {
+            new_filter_where_ranges = `AND t.range IN ${generateInClause("range", filterJSON["ranges"], queryBindings)} `;
         }
 
-        if (filterJSON["types"]) {
-            new_filter_where_types = `AND t.type IN ${JSON.stringify(filterJSON["types"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_types === "AND t.type IN () ;") {
-                new_filter_where_types = ``;
-            }
+        if (filterJSON["types"] && filterJSON["types"].length > 0) {
+            new_filter_where_types = `AND t.type IN ${generateInClause("type", filterJSON["types"], queryBindings)} `;
         }
 
-        if (filterJSON["languages"]) {
-            new_filter_where_languages = `AND t.text_lang IN ${JSON.stringify(filterJSON["languages"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_languages === "AND t.text_lang IN () ;") {
-                new_filter_where_languages = ``;
-            }
+        if (filterJSON["languages"] && filterJSON["languages"].length > 0) {
+            new_filter_where_languages = `AND t.text_lang IN ${generateInClause("lang", filterJSON["languages"], queryBindings)} `;
         }
 
-        if (filterJSON["difficulties"]) {
-            new_filter_where_difficulties = `AND t.difficulty IN ${JSON.stringify(filterJSON["difficulties"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_difficulties === "AND t.difficulty IN () ;") {
-                new_filter_where_difficulties = ``;
-            }
+        if (filterJSON["difficulties"] && filterJSON["difficulties"].length > 0) {
+            new_filter_where_difficulties = `AND t.difficulty IN ${generateInClause("diff", filterJSON["difficulties"], queryBindings)} `;
         }
 
-        if (filterJSON["providers"]) {
-            new_filter_where_providers = `AND t.provider IN ${JSON.stringify(filterJSON["providers"]).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
-
-            if (new_filter_where_providers === "AND t.provider IN () ;") {
-                new_filter_where_providers = ``;
-            }
+        if (filterJSON["providers"] && filterJSON["providers"].length > 0) {
+            new_filter_where_providers = `AND t.provider IN ${generateInClause("prov", filterJSON["providers"], queryBindings)} `;
         }
     }
 
@@ -513,7 +501,7 @@ const listWrapper = async (req, res) => {
         if (hashed_urls === null) {
             new_filter_where_poi = ``;
         } else if (hashed_urls.length !== 0) {
-            new_filter_where_poi = `AND t.hashed_url IN ${JSON.stringify(hashed_urls).replace("[", "(").replace("]", ")").replaceAll('"', "'")} `;
+            new_filter_where_poi = `AND t.hashed_url IN ${generateInClause("poi", hashed_urls, queryBindings)} `;
         } else {
             new_filter_where_poi = `AND t.hashed_url IN ('null') ;`;
         }
@@ -600,7 +588,7 @@ const listWrapper = async (req, res) => {
                         ON c2t.tour_id=t.id 
                         WHERE c2t.reachable_from_country='${tld}' 
                         ${global_where_condition};`;
-    await knex.raw(temporary_sql);
+    await knex.raw(temporary_sql, queryBindings);
     // console.log("temporary_sql = ", temporary_sql);
 
     try {
