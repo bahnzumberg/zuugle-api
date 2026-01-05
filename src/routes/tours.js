@@ -9,6 +9,7 @@ import { getHost, replaceFilePath, get_domain_country, isNumber } from "../utils
 import { minutesFromMoment } from "../utils/utils";
 import { convertDifficulty } from "../utils/utils";
 import logger from "../utils/logger";
+import { interpretInBackground } from "../utils/searchInterpreter/index.js";
 
 import fs from "fs";
 import path from "path";
@@ -412,6 +413,14 @@ const listWrapper = async (req, res) => {
     const language = req.query.language; // this referres to the column in table tour: The tour description is in which language
     const filter = req.query.filter;
     const poi = req.query.poi;
+
+    // SHADOW MODE: Interpret search in background (fire & forget)
+    // Does NOT affect actual search results - only logs what it would have done
+    if (search && search.length > 0) {
+        interpretInBackground(search, city, currLanguage, domain).catch((err) =>
+            logger.warn("Shadow interpretation failed:", err.message),
+        );
+    }
 
     const parsedBounds = bounds ? JSON.parse(bounds) : null;
     // Round coordinates to 4 decimal places (~11m precision) to improve cache hit rate
