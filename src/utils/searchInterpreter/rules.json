@@ -1,0 +1,240 @@
+{
+    "version": "1.0",
+    "patterns": {
+        "ascent": [
+            {
+                "regex": "max(?:imal)?\\s*(\\d+)\\s*(?:hm|höhenmeter)",
+                "extract": "maxAscent",
+                "type": "number",
+                "captureGroup": 1
+            },
+            {
+                "regex": "mindestens\\s*(\\d+)\\s*(?:hm|höhenmeter)",
+                "extract": "minAscent",
+                "type": "number",
+                "captureGroup": 1
+            },
+            {
+                "regex": "(\\d+)\\s*bis\\s*(\\d+)\\s*(?:hm|höhenmeter)",
+                "extract": ["minAscent", "maxAscent"],
+                "type": "range",
+                "captureGroups": [1, 2]
+            },
+            {
+                "regex": "zwischen\\s*(\\d+)\\s*und\\s*(\\d+)\\s*(?:hm|höhenmeter|meter)",
+                "extract": ["minAscent", "maxAscent"],
+                "type": "range",
+                "captureGroups": [1, 2]
+            },
+            {
+                "regex": "aufstieg\\s*(\\d+)\\s*m",
+                "extract": "minAscent",
+                "type": "number",
+                "captureGroup": 1
+            },
+            {
+                "regex": "(\\d+)\\s*m\\s*aufstieg",
+                "extract": "minAscent",
+                "type": "number",
+                "captureGroup": 1
+            },
+            { "regex": "(\\d+)\\s*hm", "extract": "maxAscent", "type": "number", "captureGroup": 1 }
+        ],
+        "duration": [
+            {
+                "regex": "(\\d+)\\s*tage(?:stour)?",
+                "extract": "number_of_days",
+                "type": "number",
+                "captureGroup": 1,
+                "sideEffect": { "multipleDayTour": true }
+            },
+            {
+                "regex": "(\\d+)\\s*bis\\s*(\\d+)\\s*(?:h|stunden?)",
+                "extract": ["minDuration", "maxDuration"],
+                "type": "range",
+                "captureGroups": [1, 2]
+            },
+            {
+                "regex": "(?:dauer|ca\\.?)\\s*(\\d+)\\s*(?:h|stunden?)",
+                "extract": "maxDuration",
+                "type": "number",
+                "captureGroup": 1
+            },
+            {
+                "regex": "kurze\\s*tour(?:en)?",
+                "extract": "maxDuration",
+                "type": "literal",
+                "value": 3
+            }
+        ],
+        "travelTime": [
+            {
+                "regex": "anreise.*?(?:max(?:imal)?)?\\s*(\\d+)\\s*(?:h|stunden?)",
+                "extract": "maxTransportDuration",
+                "type": "number",
+                "captureGroup": 1
+            },
+            {
+                "regex": "(?:in|ungefähr)\\s*(\\d+)\\s*(?:h|stunde).*?erreichbar",
+                "extract": "maxTransportDuration",
+                "type": "number",
+                "captureGroup": 1
+            },
+            {
+                "regex": "(\\d+)\\s*(?:h|stunde)\\s*(?:von|ab)\\s+\\w+",
+                "extract": "maxTransportDuration",
+                "type": "number",
+                "captureGroup": 1
+            }
+        ]
+    },
+    "keywords": {
+        "difficulty": {
+            "de": {
+                "einfach": 0,
+                "leicht": 0,
+                "anfänger": 0,
+                "familie": 0,
+                "familienwanderung": 0,
+                "kinder": 0,
+                "mittel": 1,
+                "mittelschwer": 1,
+                "schwer": 2,
+                "anspruchsvoll": 2
+            },
+            "en": {
+                "easy": 0,
+                "beginner": 0,
+                "family": 0,
+                "moderate": 1,
+                "medium": 1,
+                "difficult": 2,
+                "hard": 2,
+                "challenging": 2
+            },
+            "it": {
+                "facile": 0,
+                "semplice": 0,
+                "famiglia": 0,
+                "medio": 1,
+                "moderato": 1,
+                "difficile": 2,
+                "impegnativo": 2
+            },
+            "fr": {
+                "facile": 0,
+                "débutant": 0,
+                "famille": 0,
+                "moyen": 1,
+                "modéré": 1,
+                "difficile": 2,
+                "exigeant": 2
+            },
+            "sl": {
+                "lahka": 0,
+                "enostavna": 0,
+                "družinska": 0,
+                "srednja": 1,
+                "zmerna": 1,
+                "težka": 2,
+                "zahtevna": 2
+            }
+        },
+        "type": {
+            "de": {
+                "skitour": { "type": "Skitour", "winterSeason": true },
+                "skitouren": { "type": "Skitour", "winterSeason": true },
+                "schitour": { "type": "Skitour", "winterSeason": true },
+                "schneeschuh": { "type": "Schneeschuhwanderung", "winterSeason": true },
+                "schneeschuhtour": { "type": "Schneeschuhwanderung", "winterSeason": true },
+                "schneeschuhwanderung": { "type": "Schneeschuhwanderung", "winterSeason": true },
+                "klettersteig": { "type": "Klettersteig" },
+                "klettern": { "type": "Klettersteig" },
+                "rodeln": { "type": "Rodeln", "winterSeason": true },
+                "langlaufen": { "type": "Langlaufen", "winterSeason": true },
+                "mtb": { "type": "Mountainbike" },
+                "trailrunning": { "type": "Trailrunning" },
+                "wanderung": { "type": "Wanderung" },
+                "wandern": { "type": "Wanderung" },
+                "bergtour": { "type": "Bergtour" },
+                "rundwanderweg": { "traverse": false },
+                "winterwanderung": { "type": "Winterwanderung", "winterSeason": true }
+            },
+            "en": {
+                "ski tour": { "type": "Skitour", "winterSeason": true },
+                "hike": { "type": "Wanderung" },
+                "hiking": { "type": "Wanderung" },
+                "via ferrata": { "type": "Klettersteig" },
+                "snowshoe": { "type": "Schneeschuhwanderung", "winterSeason": true }
+            },
+            "it": {
+                "scialpinismo": { "type": "Skitour", "winterSeason": true },
+                "escursione": { "type": "Wanderung" },
+                "ferrata": { "type": "Klettersteig" },
+                "ciaspole": { "type": "Schneeschuhwanderung", "winterSeason": true }
+            }
+        },
+        "season": {
+            "de": {
+                "winter": { "winterSeason": true, "summerSeason": false },
+                "winterlich": { "winterSeason": true, "summerSeason": false },
+                "schnee": { "winterSeason": true },
+                "sommer": { "winterSeason": false, "summerSeason": true },
+                "herbstlich": { "summerSeason": true },
+                "herbst": { "summerSeason": true }
+            },
+            "en": {
+                "winter": { "winterSeason": true, "summerSeason": false },
+                "snow": { "winterSeason": true },
+                "summer": { "winterSeason": false, "summerSeason": true }
+            }
+        },
+        "multiDay": {
+            "de": {
+                "mehrtagestour": { "multipleDayTour": true, "singleDayTour": false },
+                "mehrtägig": { "multipleDayTour": true, "singleDayTour": false },
+                "mehrtägige": { "multipleDayTour": true, "singleDayTour": false },
+                "zweitägig": {
+                    "number_of_days": 2,
+                    "multipleDayTour": true,
+                    "singleDayTour": false
+                },
+                "zweitägige": {
+                    "number_of_days": 2,
+                    "multipleDayTour": true,
+                    "singleDayTour": false
+                },
+                "übernachtung": { "multipleDayTour": true, "singleDayTour": false },
+                "tagestour": { "singleDayTour": true, "multipleDayTour": false }
+            },
+            "en": {
+                "multi-day": { "multipleDayTour": true, "singleDayTour": false },
+                "overnight": { "multipleDayTour": true, "singleDayTour": false },
+                "day trip": { "singleDayTour": true, "multipleDayTour": false }
+            }
+        },
+        "qualitative": {
+            "de": {
+                "wenig höhenmeter": { "maxAscent": 500 },
+                "nicht zu steil": { "maxAscent": 600, "difficulty": 0 },
+                "kurze tour": { "maxDuration": 3 },
+                "flach": { "maxAscent": 300 }
+            },
+            "en": {
+                "low elevation": { "maxAscent": 500 },
+                "not too steep": { "maxAscent": 600, "difficulty": 0 },
+                "short tour": { "maxDuration": 3 },
+                "flat": { "maxAscent": 300 }
+            }
+        }
+    },
+    "cityPatterns": [
+        "von\\s+{city}\\s+aus",
+        "ab\\s+{city}",
+        "{city}\\s+hauptbahnhof",
+        "von\\s+{city}\\s+erreichbar",
+        "von\\s+{city}$",
+        "ab\\s+{city}$",
+        "aus\\s+{city}"
+    ]
+}
