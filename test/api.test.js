@@ -1,6 +1,14 @@
 import { baseUrl, getHeaders, waitForServer } from "./testConfig.js";
 
 describe("Zuugle API UAT Tests", () => {
+    //TODO: decide if this is right way to go
+    const validateToursResponse = ({ response, data }) => {
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.tours).toBeDefined();
+        expect(Array.isArray(data.tours)).toBe(true);
+    };
+
     beforeAll(async () => {
         // Wait for server to be ready
         if (baseUrl.startsWith("http")) {
@@ -122,6 +130,116 @@ describe("Zuugle API UAT Tests", () => {
         expect(data.success).toBe(true);
         expect(Array.isArray(data.tours)).toBe(true);
         expect(typeof data.total).toBe("number");
+    });
+
+    test("POST /api/tours should only return limited rows", async () => {
+        /***
+         * Tests for countries param expect that limit param is followed.
+         * If we get four instead of three, tests for country param will be invalid since they only use expect on first three
+         * This is done to avoid logic (in this case loop) in tests and keep them as simple as possible
+         * */
+
+        const params = new URLSearchParams({
+            domain: "www.zuugle.at",
+            city: "wien",
+            ranges: "true",
+            limit: "10",
+            currLanguage: "de",
+            page: "1",
+        });
+        const url = `${baseUrl}/api/tours?${params.toString()}`;
+        const response = await fetch(url, { method: "POST", headers: getHeaders() });
+
+        expect(response.status).toBe(200);
+
+        const data = await response.json();
+        expect(data.success).toBe(true);
+        expect(Array.isArray(data.tours)).toBe(true);
+        expect(data.tours.length).toBeLessThanOrEqual(10);
+        expect(typeof data.total).toBe("number");
+    });
+
+    describe("POST api/tours country param", () => {
+        /***
+         * These tests ensure that addition of country param in filters object works and is backward compatible
+         *
+         */
+        test("should filter tours by country query parameter (backward compatibility)", async () => {
+            const params = new URLSearchParams({
+                domain: "www.zuugle.at",
+                city: "wien",
+                ranges: "true",
+                limit: "3",
+                currLanguage: "de",
+                country: "Österreich",
+                page: "1",
+            });
+            const url = `${baseUrl}/api/tours?${params.toString()}`;
+
+            const response = await fetch(url, { method: "POST", headers: getHeaders() });
+            const data = await response.json();
+
+            validateToursResponse({ response, data });
+            expect(data.tours[0].country).toBe(params.get("country"));
+            expect(data.tours[0].country).toBe(params.get("country"));
+            expect(data.tours[0].country).toBe(params.get("country"));
+        });
+
+        test("should filter tours by countries array in filter body", async () => {
+            // this test fails if country only contains   Schweiz and language is "de"
+            const params = new URLSearchParams({
+                domain: "www.zuugle.at",
+                city: "wien",
+                ranges: "true",
+                limit: "3",
+                currLanguage: "de",
+                page: "1",
+            });
+            const countries = ["Schweiz", "Deutschland"];
+            const body = JSON.stringify({ filter: { countries } });
+            const headers = {
+                ...getHeaders(),
+                "Content-Type": "application/json",
+            };
+            const url = `${baseUrl}/api/tours?${params.toString()}`;
+
+            const response = await fetch(url, { method: "POST", body, headers });
+            const data = await response.json();
+
+            validateToursResponse({ response, data });
+            expect(countries).toContain(data.tours[0].country);
+            expect(countries).toContain(data.tours[1].country);
+            expect(countries).toContain(data.tours[2].country);
+        });
+
+        test("should prioritize filter.countries over country query param", async () => {
+            const params = new URLSearchParams({
+                domain: "www.zuugle.at",
+                city: "wien",
+                ranges: "true",
+                limit: "3",
+                currLanguage: "de",
+                country: "Schweiz",
+                page: "1",
+            });
+            const url = `${baseUrl}/api/tours?${params.toString()}`;
+            const countries = ["Schweiz", "Deutschland"];
+            const body = JSON.stringify({
+                filter: { countries },
+            });
+            const headers = {
+                ...getHeaders(),
+                "Content-Type": "application/json",
+            };
+
+            const response = await fetch(url, { method: "POST", body, headers });
+            const data = await response.json();
+
+            validateToursResponse({ response, data });
+            expect(countries).toContain(data.tours[0].country);
+            expect(countries).toContain(data.tours[1].country);
+            expect(countries).toContain(data.tours[2].country);
+        });
     });
 
     test("GET /api/tours/:id/:city returns 200 (or 404 if not found) with domain=zuugle.de", async () => {

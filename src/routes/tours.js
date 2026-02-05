@@ -793,7 +793,7 @@ const listWrapper = async (req, res) => {
                         t.title, 
                         t.image_url,
                         -- t.type, 
-                        -- t.country, 
+                        t.country, 
                         -- t.state, 
                         -- t.range_slug, 
                         t.range, 
