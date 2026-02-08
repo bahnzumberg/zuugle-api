@@ -64,12 +64,34 @@ describe("Zuugle API UAT Tests", () => {
 
     test("GET /api/tours/filter returns 200 and filter options", async () => {
         const url = `${baseUrl}/api/tours/filter?domain=www.zuugle.at&city=wien`;
+
         const response = await fetch(url, { headers: getHeaders() });
+
         expect(response.status).toBe(200);
         const data = await response.json();
         expect(data.success).toBe(true);
-        expect(data.filter).toBeDefined();
-        expect(Array.isArray(data.filter.types)).toBe(true);
+        expect(data.filter).toEqual(
+            expect.objectContaining({
+                types: expect.any(Array),
+                ranges: expect.any(Array),
+                providers: expect.any(Array),
+                languages: expect.arrayContaining([expect.any(String)]),
+                countries: expect.arrayContaining([expect.any(String)]),
+                isSingleDayTourPossible: expect.any(Boolean),
+                isMultipleDayTourPossible: expect.any(Boolean),
+                isSummerTourPossible: expect.any(Boolean),
+                isWinterTourPossible: expect.any(Boolean),
+                maxAscent: expect.any(Number),
+                minAscent: expect.any(Number),
+                maxDescent: expect.any(Number),
+                minDescent: expect.any(Number),
+                maxDistance: expect.any(Number),
+                minDistance: expect.any(Number),
+                isTraversePossible: expect.any(Boolean),
+                minTransportDuration: expect.any(Number),
+                maxTransportDuration: expect.any(Number),
+            }),
+        );
     });
 
     test("POST /api/tours with ranges=true returns tours and ranges", async () => {
