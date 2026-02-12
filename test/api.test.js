@@ -258,6 +258,7 @@ describe("Zuugle API UAT Tests", () => {
 
         const response = await fetch(url, { method: "POST", body, headers });
         const data = await response.json();
+
         assertValidToursResponse({ response, data });
     });
 
