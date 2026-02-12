@@ -56,32 +56,180 @@ describe("Zuugle API UAT Tests", () => {
         expect(data.cities.length).toBeGreaterThan(0);
     });
 
-    test("POST /api/tours returns 200 and list of tours", async () => {
-        const url = `${baseUrl}/api/tours?domain=www.zuugle.at&city=wien`;
-        const response = await fetch(url, {
-            method: "POST",
-            headers: getHeaders(),
+    describe("POST /api/tours", () => {
+        test("should return 200 and list of tours", async () => {
+            const url = `${baseUrl}/api/tours?domain=www.zuugle.at&city=wien`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: getHeaders(),
+            });
+            expect(response.status).toBe(200);
+            const data = await response.json();
+            expect(data.success).toBe(true);
+            expect(Array.isArray(data.tours)).toBe(true);
         });
-        expect(response.status).toBe(200);
-        const data = await response.json();
-        expect(data.success).toBe(true);
-        expect(Array.isArray(data.tours)).toBe(true);
-    });
 
-    test("POST /api/tours returns 200 without city parameter (uses stop_selector)", async () => {
-        // Test the scenario when no city is set - should use stop_selector='y' logic
-        const url = `${baseUrl}/api/tours?domain=www.zuugle.at`;
+        test("should return 200 without city parameter (uses stop_selector)", async () => {
+            // Test the scenario when no city is set - should use stop_selector='y' logic
+            const url = `${baseUrl}/api/tours?domain=www.zuugle.at`;
 
-        const response = await fetch(url, {
-            method: "POST",
-            headers: getHeaders(),
+            const response = await fetch(url, {
+                method: "POST",
+                headers: getHeaders(),
+            });
+            expect(response.status).toBe(200);
+            const data = await response.json();
+            expect(data.success).toBe(true);
+            expect(Array.isArray(data.tours)).toBe(true);
+            // Should return at least some tours from the stop_selector='y' filter
+            expect(data.tours.length).toBeGreaterThanOrEqual(0);
         });
-        expect(response.status).toBe(200);
-        const data = await response.json();
-        expect(data.success).toBe(true);
-        expect(Array.isArray(data.tours)).toBe(true);
-        // Should return at least some tours from the stop_selector='y' filter
-        expect(data.tours.length).toBeGreaterThanOrEqual(0);
+
+        test("should work with  ranges=true returns tours and ranges", async () => {
+            /**
+             * This test verifies that the /tours endpoint works correctly with ranges=true.
+             *
+             * WHAT THIS TESTS:
+             * - The SQL query for ranges must have correct parameter bindings
+             * - When a city is provided, the city parameter must be passed to knex.raw()
+             *
+             * COMMON FAILURE CAUSES:
+             * - SQL error "there is no parameter $1": The range_sql query uses placeholders
+             *   but knex.raw() is called without passing the binding values.
+             *   Fix: Ensure knex.raw(range_sql, [city]) passes the city value.
+             * - Location: src/routes/tours.js, around line 824 (range_result = await knex.raw())
+             */
+            const url = `${baseUrl}/api/tours?domain=www.zuugle.at&city=wien&ranges=true&limit=10&currLanguage=de`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: getHeaders(),
+            });
+
+            // Check HTTP status first
+            expect(response.status).toBe(200);
+
+            const data = await response.json();
+
+            // Basic success check
+            expect(data.success).toBe(true);
+
+            // Tours array must exist
+            expect(Array.isArray(data.tours)).toBe(true);
+
+            // Ranges array must exist when ranges=true is requested
+            expect(data.ranges).toBeDefined();
+            expect(Array.isArray(data.ranges)).toBe(true);
+        });
+
+        test("should return 200 with all common parameters", async () => {
+            /**
+             * This test covers the most common API call pattern from the frontend.
+             *
+             * WHAT THIS TESTS:
+             * - Combined parameters work together without SQL errors
+             * - Parameter binding is correct for all query parts
+             *
+             * COMMON FAILURE CAUSES:
+             * - SQL parameter mismatch: Check that all SQL queries using placeholders
+             *   receive the correct bindings in their knex.raw() calls.
+             * - Location: src/routes/tours.js, the listWrapper function
+             */
+            const params = new URLSearchParams({
+                domain: "www.zuugle.at",
+                city: "wien",
+                ranges: "true",
+                limit: "10",
+                currLanguage: "de",
+                page: "1",
+            });
+            const url = `${baseUrl}/api/tours?${params.toString()}`;
+            const response = await fetch(url, { method: "POST", headers: getHeaders() });
+
+            expect(response.status).toBe(200);
+
+            const data = await response.json();
+            expect(data.success).toBe(true);
+            expect(Array.isArray(data.tours)).toBe(true);
+            expect(typeof data.total).toBe("number");
+        });
+
+        //TODO: remove these tests when county param is removed
+        describe("country param", () => {
+            test("should filter tours by country query parameter (backward compatibility)", async () => {
+                const params = new URLSearchParams({
+                    ...TOURS_API_SEARCH_PARAMS,
+                    country: "Österreich",
+                });
+                const url = `${baseUrl}/api/tours?${params.toString()}`;
+
+                const response = await fetch(url, { method: "POST", headers: getHeaders() });
+                const data = await response.json();
+
+                assertValidToursResponse({ response, data });
+                data.tours.map((tour) => expect(tour.country).toBe(params.get("country")));
+            });
+
+            test("should filter tours by countries array in filter body", async () => {
+                const params = new URLSearchParams(TOURS_API_SEARCH_PARAMS);
+                const countries = ["Schweiz", "Deutschland"];
+                const body = JSON.stringify({ filter: { ...TOURS_API_FILTER_BODY, countries } });
+                const headers = {
+                    ...getHeaders(),
+                    "Content-Type": "application/json",
+                };
+                const url = `${baseUrl}/api/tours?${params.toString()}`;
+
+                const response = await fetch(url, { method: "POST", body, headers });
+                const data = await response.json();
+
+                assertValidToursResponse({ response, data });
+                data.tours.map((tour) => expect(countries).toContain(tour.country));
+            });
+
+            test("should prioritize filter.countries over country query param", async () => {
+                const params = new URLSearchParams({
+                    ...TOURS_API_SEARCH_PARAMS,
+                    country: "Österreich",
+                });
+                const url = `${baseUrl}/api/tours?${params.toString()}`;
+                const countries = ["Schweiz", "Deutschland"];
+                const body = JSON.stringify({ filter: { ...TOURS_API_FILTER_BODY, countries } });
+                const headers = {
+                    ...getHeaders(),
+                    "Content-Type": "application/json",
+                };
+
+                const response = await fetch(url, { method: "POST", body, headers });
+                const data = await response.json();
+
+                assertValidToursResponse({ response, data });
+                data.tours.map((tour) => expect(countries).toContain(tour.country));
+            });
+        });
+
+        it("should return tours when filter contains empty array", async () => {
+            const params = new URLSearchParams(TOURS_API_SEARCH_PARAMS);
+            const body = JSON.stringify({
+                filter: {
+                    ...TOURS_API_FILTER_BODY,
+                    countries: [],
+                    providers: [],
+                    languages: [],
+                    difficulties: [],
+                    ranges: [],
+                    types: [],
+                },
+            });
+            const headers = {
+                ...getHeaders(),
+                "Content-Type": "application/json",
+            };
+            const url = `${baseUrl}/api/tours?${params.toString()}`;
+
+            const response = await fetch(url, { method: "POST", body, headers });
+            const data = await response.json();
+            assertValidToursResponse({ response, data });
+        });
     });
 
     test("GET /api/tours/filter returns 200 and filter options", async () => {
@@ -114,127 +262,6 @@ describe("Zuugle API UAT Tests", () => {
                 maxTransportDuration: expect.any(Number),
             }),
         );
-    });
-
-    test("POST /api/tours with ranges=true returns tours and ranges", async () => {
-        /**
-         * This test verifies that the /tours endpoint works correctly with ranges=true.
-         *
-         * WHAT THIS TESTS:
-         * - The SQL query for ranges must have correct parameter bindings
-         * - When a city is provided, the city parameter must be passed to knex.raw()
-         *
-         * COMMON FAILURE CAUSES:
-         * - SQL error "there is no parameter $1": The range_sql query uses placeholders
-         *   but knex.raw() is called without passing the binding values.
-         *   Fix: Ensure knex.raw(range_sql, [city]) passes the city value.
-         * - Location: src/routes/tours.js, around line 824 (range_result = await knex.raw())
-         */
-        const url = `${baseUrl}/api/tours?domain=www.zuugle.at&city=wien&ranges=true&limit=10&currLanguage=de`;
-        const response = await fetch(url, {
-            method: "POST",
-            headers: getHeaders(),
-        });
-
-        // Check HTTP status first
-        expect(response.status).toBe(200);
-
-        const data = await response.json();
-
-        // Basic success check
-        expect(data.success).toBe(true);
-
-        // Tours array must exist
-        expect(Array.isArray(data.tours)).toBe(true);
-
-        // Ranges array must exist when ranges=true is requested
-        expect(data.ranges).toBeDefined();
-        expect(Array.isArray(data.ranges)).toBe(true);
-    });
-
-    test("POST /api/tours with all common parameters returns 200", async () => {
-        /**
-         * This test covers the most common API call pattern from the frontend.
-         *
-         * WHAT THIS TESTS:
-         * - Combined parameters work together without SQL errors
-         * - Parameter binding is correct for all query parts
-         *
-         * COMMON FAILURE CAUSES:
-         * - SQL parameter mismatch: Check that all SQL queries using placeholders
-         *   receive the correct bindings in their knex.raw() calls.
-         * - Location: src/routes/tours.js, the listWrapper function
-         */
-        const params = new URLSearchParams({
-            domain: "www.zuugle.at",
-            city: "wien",
-            ranges: "true",
-            limit: "10",
-            currLanguage: "de",
-            page: "1",
-        });
-        const url = `${baseUrl}/api/tours?${params.toString()}`;
-        const response = await fetch(url, { method: "POST", headers: getHeaders() });
-
-        expect(response.status).toBe(200);
-
-        const data = await response.json();
-        expect(data.success).toBe(true);
-        expect(Array.isArray(data.tours)).toBe(true);
-        expect(typeof data.total).toBe("number");
-    });
-
-    describe("POST api/tours country param", () => {
-        test("should filter tours by country query parameter (backward compatibility)", async () => {
-            const params = new URLSearchParams({
-                ...TOURS_API_SEARCH_PARAMS,
-                country: "Österreich",
-            });
-            const url = `${baseUrl}/api/tours?${params.toString()}`;
-
-            const response = await fetch(url, { method: "POST", headers: getHeaders() });
-            const data = await response.json();
-
-            assertValidToursResponse({ response, data });
-            data.tours.map((tour) => expect(tour.country).toBe(params.get("country")));
-        });
-
-        test("should filter tours by countries array in filter body", async () => {
-            const params = new URLSearchParams(TOURS_API_SEARCH_PARAMS);
-            const countries = ["Schweiz", "Deutschland"];
-            const body = JSON.stringify({ filter: { ...TOURS_API_FILTER_BODY, countries } });
-            const headers = {
-                ...getHeaders(),
-                "Content-Type": "application/json",
-            };
-            const url = `${baseUrl}/api/tours?${params.toString()}`;
-
-            const response = await fetch(url, { method: "POST", body, headers });
-            const data = await response.json();
-
-            assertValidToursResponse({ response, data });
-            data.tours.map((tour) => expect(countries).toContain(tour.country));
-        });
-
-        test("should prioritize filter.countries over country query param", async () => {
-            const params = new URLSearchParams({
-                ...TOURS_API_SEARCH_PARAMS,
-                country: "Österreich",
-            });
-            const url = `${baseUrl}/api/tours?${params.toString()}`;
-            const countries = ["Schweiz", "Deutschland"];
-            const body = JSON.stringify({ filter: { ...TOURS_API_FILTER_BODY, countries } });
-            const headers = {
-                ...getHeaders(),
-                "Content-Type": "application/json",
-            };
-
-            const response = await fetch(url, { method: "POST", body, headers });
-            const data = await response.json();
-
-            assertValidToursResponse({ response, data });
-            data.tours.map((tour) => expect(countries).toContain(tour.country));
-        });
     });
 
     test("GET /api/tours/:id/:city returns 200 (or 404 if not found) with domain=zuugle.de", async () => {
