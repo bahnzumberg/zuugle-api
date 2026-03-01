@@ -1325,29 +1325,137 @@ export async function refreshSearchSuggestions() {
     try {
         // logger.info("Refreshing search_suggestions table");
 
-        // 1. Truncate existing data
+        // 1. Ensure table exists (self-healing for fresh environments)
+        await knex.raw(`
+            CREATE TABLE IF NOT EXISTS search_suggestions (
+                type varchar(10) NOT NULL,
+                term text NOT NULL,
+                reachable_from_country char(2) NOT NULL,
+                city_slug varchar(64) NOT NULL,
+                priority int NOT NULL,
+                number_of_tours integer,
+                PRIMARY KEY (reachable_from_country, city_slug, type, term)
+            );
+        `);
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_suggestions_exact
+            ON search_suggestions (reachable_from_country, city_slug)
+            INCLUDE (priority, number_of_tours);
+        `);
+        await knex.raw(`
+            CREATE INDEX IF NOT EXISTS idx_suggestions_term_trgm
+            ON search_suggestions USING gin (term gin_trgm_ops);
+        `);
+
+        // 2. Truncate existing data
         await knex.raw(`TRUNCATE search_suggestions;`);
 
-        // 2. Re-populate from city2tour_flat
+        // Insert POIs
         await knex.raw(`
-            INSERT INTO search_suggestions (reachable_from_country, city_slug, term, number_of_tours)
-            SELECT 
+            INSERT INTO search_suggestions (type, term, reachable_from_country, city_slug, priority, number_of_tours)
+            SELECT
+                p.type,
+                p.name AS term,
+                c.reachable_from_country,
+                c.city_slug,
+                CASE WHEN p.type = 'peak' THEN 1 ELSE 3 END AS priority,
+                COUNT(p.id) AS number_of_tours
+            FROM pois p
+            JOIN poi2tour pt ON p.id = pt.poi_id
+            JOIN city2tour c ON pt.tour_id = c.tour_id
+            GROUP BY 
+                p.type, 
+                p.name, 
+                c.reachable_from_country, 
+                c.city_slug;
+        `);
+
+        // Insert Ranges
+        await knex.raw(`
+            INSERT INTO search_suggestions (type, term, reachable_from_country, city_slug, priority, number_of_tours)
+            SELECT
+                'range' AS type,
+                c.range AS term,
+                c.reachable_from_country,
+                c.city_slug,
+                2 AS priority,
+                COUNT(c.id) AS number_of_tours
+            FROM city2tour_flat c
+            WHERE c.range IS NOT NULL
+            GROUP BY 
+                c.range, 
+                c.reachable_from_country, 
+                c.city_slug;
+        `);
+
+        // Insert Terms
+        await knex.raw(`
+            INSERT INTO search_suggestions (type, term, reachable_from_country, city_slug, priority, number_of_tours)
+            WITH extracted_words AS (
+                SELECT
+                    c.city_slug,
+                    c.reachable_from_country,
+                    clean_term.original_word,
+                    (ts_lexize(
+                        (CASE t.text_lang
+                            WHEN 'de' THEN 'german_stem'
+                            WHEN 'en' THEN 'english_stem'
+                            WHEN 'it' THEN 'italian_stem'
+                            WHEN 'fr' THEN 'french_stem'
+                            ELSE 'simple' 
+                        END)::regdictionary, 
+                        lower(clean_term.original_word)
+                    ))[1] AS stem
+                FROM city2tour_flat c
+                JOIN tour t ON c.id = t.id
+                CROSS JOIN LATERAL regexp_split_to_table(t.full_text, '[^[:alpha:]]+') AS raw(word)
+                CROSS JOIN LATERAL (
+                    SELECT raw.word AS original_word
+                    WHERE length(raw.word) >= 4
+                ) AS clean_term
+            ),
+            valid_stems AS (
+                SELECT 
+                    city_slug, 
+                    reachable_from_country, 
+                    original_word, 
+                    stem
+                FROM extracted_words
+                WHERE stem IS NOT NULL 
+            ),
+            word_counts AS (
+                SELECT
+                    city_slug,
+                    reachable_from_country,
+                    stem,
+                    original_word,
+                    COUNT(original_word) AS number_of_tours
+                FROM valid_stems
+                GROUP BY city_slug, reachable_from_country, stem, original_word
+                HAVING COUNT(original_word) >= 2 
+            ),
+            ranked_words AS (
+                SELECT
+                    city_slug,
+                    reachable_from_country,
+                    stem,
+                    original_word,
+                    number_of_tours,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY city_slug, reachable_from_country, stem 
+                        ORDER BY number_of_tours DESC, original_word ASC
+                    ) as rank
+                FROM word_counts
+            )
+            SELECT
+                'term' AS type,
+                original_word AS term,
                 reachable_from_country,
                 city_slug,
-                term,
-                COUNT(id) AS number_of_tours
-            FROM (
-                SELECT 
-                    reachable_from_country,
-                    city_slug, 
-                    id, 
-                    unnest(tsvector_to_array(search_column)) AS term 
-                FROM city2tour_flat
-            ) sub
-            WHERE length(term) >= 3
-            AND term ~* '^[[:alpha:]]'
-            GROUP BY reachable_from_country, city_slug, term
-            HAVING COUNT(id) > 1;
+                3 AS priority,
+                number_of_tours
+            FROM ranked_words
+            WHERE rank = 1;
         `);
     } catch (err) {
         logger.error("Error refreshing search_suggestions:", err);
