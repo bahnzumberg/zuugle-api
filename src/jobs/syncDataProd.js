@@ -1,4 +1,16 @@
-#!/usr/bin/node
+/**
+ * syncDataProd.js
+ *
+ * Full production data sync pipeline. Fetches tour data from the source
+ * database and rebuilds all derived tables, search indexes and sitemaps.
+ *
+ * Steps: syncTours → syncCities → fixTours → KPIs → city2tour_flat
+ *        → search suggestions → sitemaps → providers → flush cache.
+ *
+ * Usage: npm run import-data
+ * (After building: node build/jobs/syncDataProd.js)
+ */
+
 import {
     getProvider,
     writeKPIs,
@@ -9,84 +21,63 @@ import {
     refreshSearchSuggestions,
     generateSitemaps,
 } from "./sync";
-import moment from "moment";
 import cacheService from "../services/cache.js";
+import logger from "../utils/logger";
 
-console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " FULL LOAD");
-console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " START SYNC TOURS");
-syncTours().then(() => {
-    console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " DONE SYNC TOURS");
-    console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " START SYNC CITIES");
-    syncCities().then(() => {
-        console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " DONE SYNC CITIES");
-        console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " START FIX TOURS");
-        fixTours().then(() => {
-            console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " DONE FIX TOURS");
-            console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " START WRITE KPIs");
-            writeKPIs().then(() => {
-                console.log(moment().format("YYYY.MM.DD HH:mm:ss"), " DONE WRITING KPIs");
-                console.log(
-                    moment().format("YYYY.MM.DD HH:mm:ss"),
-                    " START POPULATE city2tour_flat",
-                );
-                populateCity2TourFlat().then(() => {
-                    console.log(
-                        moment().format("YYYY.MM.DD HH:mm:ss"),
-                        " DONE POPULATE city2tour_flat",
-                    );
-                    refreshSearchSuggestions().then(() => {
-                        console.log(
-                            moment().format("YYYY.MM.DD HH:mm:ss"),
-                            " DONE REFRESH SEARCH SUGGESTIONS",
-                        );
-                        console.log(
-                            moment().format("YYYY.MM.DD HH:mm:ss"),
-                            " START GENERATE SITEMAPS",
-                        );
-                        generateSitemaps().then(() => {
-                            console.log(
-                                moment().format("YYYY.MM.DD HH:mm:ss"),
-                                " DONE GENERATE SITEMAPS",
-                            );
-                            console.log(
-                                moment().format("YYYY.MM.DD HH:mm:ss"),
-                                " START FETCH PROVIDER",
-                            );
-                            getProvider().then(async () => {
-                                console.log(
-                                    moment().format("YYYY.MM.DD HH:mm:ss"),
-                                    " FETCHED PROVIDER",
-                                );
+async function main() {
+    logger.info("FULL LOAD");
 
-                                // Log cache statistics before flushing
-                                const stats = await cacheService.getStats();
-                                if (stats) {
-                                    const total = stats.hits + stats.misses;
-                                    const hitRate =
-                                        total > 0 ? ((stats.hits / total) * 100).toFixed(1) : 0;
-                                    console.log(
-                                        moment().format("YYYY.MM.DD HH:mm:ss"),
-                                        ` CACHE STATS (previous day): hits=${stats.hits}, misses=${stats.misses}, hit_rate=${hitRate}%`,
-                                    );
-                                } else {
-                                    console.log(
-                                        moment().format("YYYY.MM.DD HH:mm:ss"),
-                                        " CACHE STATS: unavailable",
-                                    );
-                                }
+    logger.info("Sync tours...");
+    await syncTours();
+    logger.info("Done sync tours");
 
-                                await cacheService.flush();
-                                console.log(
-                                    moment().format("YYYY.MM.DD HH:mm:ss"),
-                                    " CACHE FLUSHED",
-                                );
+    logger.info("Sync cities...");
+    await syncCities();
+    logger.info("Done sync cities");
 
-                                process.exit();
-                            });
-                        });
-                    });
-                });
-            });
-        });
+    logger.info("Fix tours...");
+    await fixTours();
+    logger.info("Done fix tours");
+
+    logger.info("Write KPIs...");
+    await writeKPIs();
+    logger.info("Done writing KPIs");
+
+    logger.info("Populate city2tour_flat...");
+    await populateCity2TourFlat();
+    logger.info("Done populate city2tour_flat");
+
+    logger.info("Refresh search suggestions...");
+    await refreshSearchSuggestions();
+    logger.info("Done refresh search suggestions");
+
+    logger.info("Generate sitemaps...");
+    await generateSitemaps();
+    logger.info("Done generate sitemaps");
+
+    logger.info("Fetch providers...");
+    await getProvider();
+    logger.info("Done fetch providers");
+
+    // Log cache statistics before flushing
+    const stats = await cacheService.getStats();
+    if (stats) {
+        const total = stats.hits + stats.misses;
+        const hitRate = total > 0 ? ((stats.hits / total) * 100).toFixed(1) : 0;
+        logger.info(
+            `Cache stats (previous day): hits=${stats.hits}, misses=${stats.misses}, hit_rate=${hitRate}%`,
+        );
+    } else {
+        logger.info("Cache stats: unavailable");
+    }
+
+    await cacheService.flush();
+    logger.info("Cache flushed");
+}
+
+main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+        logger.error("Error during sync:", err);
+        process.exit(1);
     });
-});

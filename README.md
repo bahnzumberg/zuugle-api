@@ -119,3 +119,37 @@ To upgrade the PostgreSQL version or completely rebuild the database structure:
 ## Follow frontend Readme
 
 Follow the steps described at https://github.com/bahnzumberg/zuugle-suchseite#zuugleat-suchseite
+
+## Available npm scripts
+
+All data/job scripts require `npm run build` first.
+
+| Script                                | Purpose                                                |
+| ------------------------------------- | ------------------------------------------------------ |
+| `npm run start`                       | Start the API server locally (with hot-reload)         |
+| `npm run build`                       | Compile source to `build/`                             |
+| `npm run import-data`                 | Full production sync: tours → cities → KPIs → sitemaps |
+| `npm run import-data-docker`          | Import a local `.dump` file into the Docker database   |
+| `npm run import-data-docker-download` | Download the latest dump from UAT and import it        |
+| `npm run import-files`                | Generate GPX files, connection GPX, preview images     |
+| `npm run reset-database`              | Drop and recreate the database from `database.sql`     |
+| `npm run rebuild-docker`              | Rebuild the Docker PostgreSQL container from scratch   |
+| `npm run refresh-search-suggestions`  | Refresh autocomplete / search suggestions table        |
+| `npm run generate-testdata`           | Generate test fixture data                             |
+| `npm run test`                        | Run the test suite                                     |
+| `npm run lint`                        | Run ESLint                                             |
+| `npm run format`                      | Format code with Prettier                              |
+
+### Job files (`src/jobs/`)
+
+| File                          | Runs via                      | Description                                  |
+| ----------------------------- | ----------------------------- | -------------------------------------------- |
+| `sync.js`                     | — (shared library)            | Core functions used by all other job scripts |
+| `syncDataProd.js`             | `import-data`                 | Full data sync from the source database      |
+| `syncDataDocker.js`           | `import-data-docker`          | Import a `.dump` file into Docker PostgreSQL |
+| `syncDataDockerDownload.js`   | `import-data-docker-download` | Download dump from UAT, then import          |
+| `syncFiles.js`                | `import-files`                | Generate GPX tracks and preview images       |
+| `resetDatabase.js`            | `reset-database`              | Drop & recreate the database schema          |
+| `rebuildDocker.js`            | `rebuild-docker`              | Rebuild the Docker PostgreSQL container      |
+| `refreshSearchSuggestions.js` | `refresh-search-suggestions`  | Refresh the search suggestions table         |
+| `generateTestdata.js`         | `generate-testdata`           | Generate test fixture data                   |
