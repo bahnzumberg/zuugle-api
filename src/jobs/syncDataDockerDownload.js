@@ -19,21 +19,30 @@ const DUMP_FILE = "zuugle_postgresql.dump";
 function download(url) {
     return new Promise((resolve, reject) => {
         const file = createWriteStream(DUMP_FILE);
+        file.on("error", (err) => {
+            file.close();
+            reject(err);
+        });
         get(url, (response) => {
             if (response.statusCode === 301 || response.statusCode === 302) {
                 file.close();
-                return download(response.headers.location).then(resolve, reject);
+                download(response.headers.location).then(resolve, reject);
+                return;
             }
             if (response.statusCode !== 200) {
                 file.close();
-                return reject(new Error(`Download failed with status: ${response.statusCode}`));
+                reject(new Error(`Download failed with status: ${response.statusCode}`));
+                return;
             }
             response.pipe(file);
             file.on("finish", () => {
                 file.close();
                 resolve();
             });
-        }).on("error", reject);
+        }).on("error", (err) => {
+            file.close();
+            reject(err);
+        });
     });
 }
 
