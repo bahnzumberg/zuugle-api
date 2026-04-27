@@ -806,6 +806,76 @@ const getMatchingTourIds = async (req) => {
 }; // end of getMatchingTourIds
 
 /**
+ * Tries to derive the most likely city from past search logs.
+ * Uses exponentially time-weighted search history to find a city_slug that accounts
+ * for ≥90% of all weighted searches matching the given phrase, language and country.
+ *
+ * @param {string} search - The search phrase entered by the user.
+ * @param {string} menuLang - The UI language (e.g. "de", "en").
+ * @param {string} countryCode - The country code in uppercase (e.g. "AT").
+ * @returns {Promise<string|null>} The city_slug if one dominates, otherwise null.
+ */
+const deriveCityFromSearchLog = async (search, menuLang, countryCode) => {
+    const sql = `WITH weighted_searches AS (
+                    SELECT 
+                        LOWER(TRIM(phrase)) AS normalized_phrase,
+                        menu_lang,
+                        country_code,
+                        city_slug,
+                        EXP(-0.05 * (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - search_time)) / 86400.0)) AS weight
+                    FROM 
+                        logsearchphrase
+                    WHERE 
+                        phrase=LOWER(TRIM(?)) 
+                        AND menu_lang=?
+                        AND country_code=?
+                ),
+                city_phrase_weights AS (
+                    SELECT 
+                        normalized_phrase,
+                        menu_lang,
+                        country_code,
+                        city_slug,
+                        SUM(weight) AS city_weight
+                    FROM 
+                        weighted_searches
+                    GROUP BY 
+                        normalized_phrase, 
+                        menu_lang, 
+                        country_code, 
+                        city_slug
+                ),
+                total_phrase_weights AS (
+                    SELECT 
+                        normalized_phrase,
+                        menu_lang,
+                        country_code,
+                        city_slug,
+                        city_weight,
+                        SUM(city_weight) OVER (PARTITION BY normalized_phrase, menu_lang, country_code) AS total_weight
+                    FROM 
+                        city_phrase_weights
+                )
+                SELECT 
+                    city_slug
+                FROM 
+                    total_phrase_weights
+                WHERE (city_weight / total_weight) >= 0.9
+                ORDER BY 
+                    (city_weight / total_weight) DESC,
+                    normalized_phrase ASC
+                LIMIT 1`;
+    const result = await knex.raw(sql, [search, menuLang, countryCode]);
+    if (result.rows && result.rows.length > 0) {
+        const citySlug = result.rows[0].city_slug;
+        if (citySlug && citySlug !== "") {
+            return citySlug;
+        }
+    }
+    return null;
+};
+
+/**
  * Main search endpoint. Lists tours based on various filters such as search term, city, range,
  * range_slug, statistics (KPIs), and more. Supports pagination and caching.
  * @param {object} req - Express request object.
@@ -818,70 +888,17 @@ const listWrapper = async (req, res) => {
     const search = req.query.search;
     const currLanguage = req.query.currLanguage ? req.query.currLanguage : "de";
     const domain = req.query.domain;
-    let city_temp = req.query.city;
 
-    // If there is still no city set and the user search for something, we can try to find
+    // If there is still no city set and the user searched for something, we can try to find
     // a city based on probability out of the past logged search terms
-    if ((!city_temp || city_temp === "") && search && search.length > 0) {
-        const city_derived_from_search_sql = `WITH weighted_searches AS (
-                                                SELECT 
-                                                    LOWER(TRIM(phrase)) AS normalized_phrase,
-                                                    menu_lang,
-                                                    country_code,
-                                                    city_slug,
-                                                    EXP(-0.05 * (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - search_time)) / 86400.0)) AS weight
-                                                FROM 
-                                                    logsearchphrase
-                                                WHERE 
-                                                    phrase=LOWER(TRIM(?)) 
-                                                    AND menu_lang=?
-                                                    AND country_code=?
-                                            ),
-                                            city_phrase_weights AS (
-                                                SELECT 
-                                                    normalized_phrase,
-                                                    menu_lang,
-                                                    country_code,
-                                                    city_slug,
-                                                    SUM(weight) AS city_weight
-                                                FROM 
-                                                    weighted_searches
-                                                GROUP BY 
-                                                    normalized_phrase, 
-                                                    menu_lang, 
-                                                    country_code, 
-                                                    city_slug
-                                            ),
-                                            total_phrase_weights AS (
-                                                SELECT 
-                                                    normalized_phrase,
-                                                    menu_lang,
-                                                    country_code,
-                                                    city_slug,
-                                                    city_weight,
-                                                    SUM(city_weight) OVER (PARTITION BY normalized_phrase, menu_lang, country_code) AS total_weight
-                                                FROM 
-                                                    city_phrase_weights
-                                            )
-                                            SELECT 
-                                                city_slug
-                                            FROM 
-                                                total_phrase_weights
-                                            WHERE (city_weight / total_weight) >= 0.9
-                                            ORDER BY 
-                                                (city_weight / total_weight) DESC,
-                                                normalized_phrase ASC
-                                            LIMIT 1`;
-        const city_derived_from_search = await knex.raw(city_derived_from_search_sql, [
+    if ((!req.query.city || req.query.city === "") && search && search.length > 0) {
+        const derivedCity = await deriveCityFromSearchLog(
             search,
             currLanguage,
             get_domain_country(domain).toUpperCase(),
-        ]);
-        if (city_derived_from_search.rows && city_derived_from_search.rows.length > 0) {
-            const city_slug_temp = city_derived_from_search.rows[0].city_slug;
-            if (city_slug_temp && city_slug_temp !== "") {
-                req.query.city = city_slug_temp;
-            }
+        );
+        if (derivedCity) {
+            req.query.city = derivedCity;
         }
     }
 
